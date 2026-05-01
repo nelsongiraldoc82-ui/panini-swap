@@ -5,11 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Panini Swap</title>
 <meta name="theme-color" content="#0a0f0b">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" id="lm">
 <link rel="apple-touch-icon" id="ai">
-<script src="https://cdn.tailwindcss.com"></script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
@@ -125,12 +124,14 @@ body{font-family:'DM Sans',sans-serif;background:#060b08;color:#e4e4e4;overflow:
 .sho{background:linear-gradient(135deg,#b8860b 0%,#ffd700 30%,#b8860b 50%,#ffd700 80%,#b8860b 100%)!important;background-size:200% 200%!important;animation:shm 2s ease infinite!important}
 .shd{background:linear-gradient(135deg,#00bfff 0%,#e0f7fa 25%,#00bfff 50%,#e0f7fa 75%,#00bfff 100%)!important;background-size:200% 200%!important;animation:shm 1.5s ease infinite!important}
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+#debugBar{position:fixed;bottom:0;left:0;right:0;padding:4px 10px;background:rgba(0,0,0,.85);color:#aaa;font-size:.6rem;z-index:999;text-align:center;display:none;font-family:monospace}
 </style>
 </head>
 <body>
 
+<div id="debugBar"></div>
+
 <div id="pantallas">
-<!-- LOGIN -->
 <div id="loginPant">
 <div class="campo"><div class="cm"></div><div class="cc"></div><div class="cdot"></div><div class="cpa"></div><div class="cpb"></div><div class="esq es1"></div><div class="esq es2"></div><div class="esq es3"></div><div class="esq es4"></div></div>
 <div class="arco"><div class="atr t"></div><div class="atr b"></div><div class="apo l"></div><div class="apo r"></div><div class="red"></div></div>
@@ -139,12 +140,12 @@ body{font-family:'DM Sans',sans-serif;background:#060b08;color:#e4e4e4;overflow:
 <div style="text-align:center;margin-bottom:20px">
 <div class="fd" style="font-size:2.2rem;color:var(--accent)">PANINI</div>
 <div style="color:var(--muted);font-size:.68rem;margin-top:2px">980 Cromos - 48 Selecciones</div>
-<div style="margin-top:8px"><span class="punto c" id="pdot"></span><span id="ptxt" style="font-size:.7rem;color:var(--muted)">Cargando...</span></div>
+<div style="margin-top:8px"><span class="punto c" id="pdot"></span><span id="ptxt" style="font-size:.7rem;color:var(--muted)">Iniciando...</span></div>
 </div>
 <div id="vistaLogin">
 <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:7px">Ingresa tu codigo de acceso</label>
 <input type="text" id="codigoInp" class="inp" placeholder="Ej: CARLOS01" maxlength="12" autocomplete="off" spellcheck="false">
-<div id="loginErr" style="color:var(--err);font-size:.78rem;margin-top:7px;text-align:center;min-height:1.2em"></div>
+<div id="loginErr" style="color:var(--err);font-size:.78rem;margin-top:7px;text-align:center;min-height:2.4em"></div>
 <button id="btnEntrar" class="btnp" style="margin-top:10px">Ingresar</button>
 <div style="text-align:center;margin-top:14px"><button id="btnAdmin" class="linkbtn">Administrador</button></div>
 </div>
@@ -158,7 +159,6 @@ body{font-family:'DM Sans',sans-serif;background:#060b08;color:#e4e4e4;overflow:
 </div>
 </div>
 
-<!-- APP -->
 <div id="appPant" style="display:none">
 <div class="blob bl1"></div><div class="blob bl2"></div>
 <header id="hdr"><div style="display:flex;align-items:center;gap:12px"><span class="fd" style="font-size:1.3rem;color:var(--accent)">PANINI</span><span id="htitulo" style="font-size:.72rem;color:var(--muted)"></span></div><div style="display:flex;align-items:center;gap:8px"><button id="btnAtras" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;display:none"><i class="fas fa-arrow-left"></i></button><button id="btnSalir" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.95rem"><i class="fas fa-sign-out-alt"></i></button></div></header>
@@ -171,43 +171,59 @@ body{font-family:'DM Sans',sans-serif;background:#060b08;color:#e4e4e4;overflow:
 <div id="toast" class="toastel"></div>
 
 <script>
-// === UTILIDADES ===
-var E=function(id){return document.getElementById(id)};
+/* === DEBUG === */
+function dbg(m){console.log('[PS]',m);var d=document.getElementById('debugBar');if(d){d.style.display='block';d.textContent=m}}
+
+/* === UTILIDADES === */
+function E(id){return document.getElementById(id)}
 var _tt=null;
 function toast(m,t){var el=E('toast');el.textContent=m;el.className='toastel '+t;setTimeout(function(){el.classList.add('abierto')},10);clearTimeout(_tt);_tt=setTimeout(function(){el.classList.remove('abierto')},2800)}
 function abrirModal(){E('modal').classList.add('abierto')}
 function cerrarModal(){E('modal').classList.remove('abierto')}
 function fmtH(ts){if(!ts)return '';var d=Date.now()-ts;if(d<6e4)return 'ahora';if(d<36e5)return Math.floor(d/6e4)+'m';if(d<864e5)return Math.floor(d/36e5)+'h';return new Date(ts).getDate()+'/'+(new Date(ts).getMonth()+1)}
 function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
-function uidC(id){var h=0;for(var i=0;i<id.length;i++)h=((h<<5)-h)+id.charCodeAt(i);return Math.abs(h)%360}
+function uidC(id){var h=0;for(var i=0;i<id.length;i++){h=((h<<5)-h)+id.charCodeAt(i)}return Math.abs(h)%360}
 
-// === API ===
+/* === API CON TIMEOUT === */
 var API='/api/data';
-function apiGet(p){var q=[];for(var k in p)q.push(encodeURIComponent(k)+'='+encodeURIComponent(p[k]));return fetch(API+'?'+q.join('&')).then(function(r){return r.json()})}
-function apiPost(a,b){return fetch(API+'?a='+a,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(function(r){return r.json()})}
+var TIMEOUT=10000;
+function fetchT(url,opt){return new Promise(function(ok,no){var t=setTimeout(function(){no(new Error('Tiempo agotado (10s)'))},TIMEOUT);fetch(url,opt).then(function(r){clearTimeout(t);ok(r)}).catch(function(e){clearTimeout(t);no(e)})})}
+function apiGet(p){var q=[];for(var k in p){q.push(encodeURIComponent(k)+'='+encodeURIComponent(p[k]))}return fetchT(API+'?'+q.join('&')).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})}
+function apiPost(a,b){return fetchT(API+'?a='+a,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})}
 
-// === ESTADO ===
+/* === ESTADO === */
 var usr=null,dat=null,tab='album',chatOid=null,chatK=null,pila=[],fAlb='all',fBus='missing',colaps={};
 var APW='panini2024';
 
-// === MOSTRAR LOGIN INMEDIATAMENTE ===
+/* === INICIO === */
+dbg('JS cargado');
 E('pdot').className='punto c';
 E('ptxt').textContent='Verificando servidor...';
-apiGet({a:'users'}).then(function(){E('pdot').className='punto v';E('ptxt').textContent='Conectado a la nube'}).catch(function(){E('pdot').className='punto r';E('ptxt').textContent='Sin conexion - funciona offline'});
 
-// === EVENTOS LOGIN ===
-E('btnEntrar').onclick=function(){hacerLogin()};
-E('codigoInp').onkeydown=function(e){if(e.key==='Enter')hacerLogin()};
-E('btnAdmin').onclick=function(){E('vistaLogin').style.display='none';E('vistaAdmin').style.display='block'};
-E('btnVolver').onclick=function(){E('vistaAdmin').style.display='none';E('vistaLogin').style.display='block'};
-E('btnAdminOk').onclick=function(){hacerAdmin()};
-E('adminInp').onkeydown=function(e){if(e.key==='Enter')hacerAdmin()};
-E('btnSalir').onclick=hacerLogout;
-E('btnAtras').onclick=volverAtras;
-E('modal').onclick=function(e){if(e.target.id==='modal')cerrarModal()};
+apiGet({a:'users'}).then(function(r){
+    dbg('Servidor OK - '+(r.length||0)+' usuarios');
+    E('pdot').className='punto v';
+    E('ptxt').textContent='Conectado a la nube';
+}).catch(function(e){
+    dbg('Servidor ERROR: '+(e.message||e));
+    E('pdot').className='punto r';
+    E('ptxt').textContent='Sin conexion al servidor';
+});
+
+/* === EVENTOS === */
+E('btnEntrar').addEventListener('click',hacerLogin);
+E('codigoInp').addEventListener('keydown',function(e){if(e.key==='Enter')hacerLogin()});
+E('btnAdmin').addEventListener('click',function(){E('vistaLogin').style.display='none';E('vistaAdmin').style.display='block';E('adminInp').focus()});
+E('btnVolver').addEventListener('click',function(){E('vistaAdmin').style.display='none';E('vistaLogin').style.display='block'});
+E('btnAdminOk').addEventListener('click',hacerAdmin);
+E('adminInp').addEventListener('keydown',function(e){if(e.key==='Enter')hacerAdmin()});
+E('btnSalir').addEventListener('click',hacerLogout);
+E('btnAtras').addEventListener('click',volverAtras);
+E('modal').addEventListener('click',function(e){if(e.target.id==='modal')cerrarModal()});
 var navBtns=document.querySelectorAll('.nbtn');
-for(var ni=0;ni<navBtns.length;ni++){navBtns[ni].onclick=function(){irA(this.getAttribute('data-t'))}}
+for(var ni=0;ni<navBtns.length;ni++){navBtns[ni].addEventListener('click',function(){irA(this.getAttribute('data-t'))})}
 
+/* === LOGIN === */
 function hacerLogin(){
     var cod=E('codigoInp').value.trim().toUpperCase();
     var err=E('loginErr');
@@ -222,14 +238,28 @@ function hacerLogin(){
         E('htitulo').textContent=r.name;
         E('loginPant').style.display='none';
         E('appPant').style.display='flex';
+        E('debugBar').style.display='none';
         irA('album');
         toast('Bienvenido, '+r.name,'suc');
-    }).catch(function(){btn.disabled=false;btn.textContent='Ingresar';err.textContent='Error de conexion'});
+    }).catch(function(e){
+        btn.disabled=false;btn.textContent='Ingresar';
+        err.textContent='Error: '+(e.message||'sin respuesta del servidor');
+    });
 }
 
 function hacerAdmin(){
-    if(E('adminInp').value===APW){E('adminErr').textContent='';usr='__ADMIN__';E('htitulo').textContent='Admin';E('loginPant').style.display='none';E('appPant').style.display='flex';irA('album');toast('Modo admin','inf')}
-    else{E('adminErr').textContent='Clave incorrecta'}
+    if(E('adminInp').value===APW){
+        E('adminErr').textContent='';
+        usr='__ADMIN__';
+        E('htitulo').textContent='Admin';
+        E('loginPant').style.display='none';
+        E('appPant').style.display='flex';
+        E('debugBar').style.display='none';
+        irA('album');
+        toast('Modo admin','inf');
+    }else{
+        E('adminErr').textContent='Clave incorrecta';
+    }
 }
 
 function hacerLogout(){
@@ -239,22 +269,26 @@ function hacerLogout(){
     E('loginErr').textContent='';E('adminErr').textContent='';
     E('vistaAdmin').style.display='none';E('vistaLogin').style.display='block';
     E('appPant').style.display='none';E('loginPant').style.display='flex';
+    E('debugBar').style.display='block';
 }
 
-// === NAVEGACION ===
+/* === NAVEGACION === */
 function irA(t){
     chatOid=null;chatK=null;tab=t;pila=[];
-    for(var i=0;i<navBtns.length;i++)navBtns[i].classList.toggle('on',navBtns[i].getAttribute('data-t')===t);
+    for(var i=0;i<navBtns.length;i++){navBtns[i].classList.toggle('on',navBtns[i].getAttribute('data-t')===t)}
     E('btnAtras').style.display='none';
     E('htitulo').textContent=usr==='__ADMIN__'?'Admin':(dat?dat.name:'');
     E('cnt').scrollTop=0;
     if(usr==='__ADMIN__'){dibAdmin(E('cnt'));return}
-    if(t==='album')dibAlbum(E('cnt'));else if(t==='buscar')dibBuscar(E('cnt'));else if(t==='mensajes')dibMensajes(E('cnt'));else if(t==='perfil')dibPerfil(E('cnt'));
+    if(t==='album')dibAlbum(E('cnt'));
+    else if(t==='buscar')dibBuscar(E('cnt'));
+    else if(t==='mensajes')dibMensajes(E('cnt'));
+    else if(t==='perfil')dibPerfil(E('cnt'));
 }
 function empVista(tit,fn){pila.push({tab:tab,tit:E('htitulo').textContent});E('htitulo').textContent=tit;E('btnAtras').style.display='block';E('cnt').scrollTop=0;fn(E('cnt'))}
 function volverAtras(){if(!pila.length)return;var p=pila.pop();E('htitulo').textContent=p.tit;E('btnAtras').style.display=pila.length?'block':'none';E('cnt').scrollTop=0;if(p.tab==='album')dibAlbum(E('cnt'));else if(p.tab==='buscar')dibBuscar(E('cnt'));else if(p.tab==='mensajes')dibMensajes(E('cnt'));else if(p.tab==='perfil')dibPerfil(E('cnt'))}
 
-// === STICKERS DATA ===
+/* === STICKERS DATA === */
 var EQ=[
 {c:'QAT',n:'Qatar',cl:'#8a1538',j:'Al Sheeb|Barsham|Khoukhi|Al Rawi|Miguel|Hassan|Al Attiyah|Madibo|Asad|Waad|Al Hajri|Hatem|Boudiaf|Mohammad|Afif|Al Ali|Al Haydos|Muntari'},
 {c:'ECU',n:'Ecuador',cl:'#ffcd00',j:'Dominguez|Galindez|Arboleda|Hincapie|Preciado|Estupinan|Gruezo|Mendez|Caicedo|Franco|Ibarra|Plata|Estrada|Reasco|Torres|Cuesta|Alvarado|Valencia'},
@@ -311,46 +345,299 @@ var EXTRAS=[
 {n:'Laeeb Golden Mascot',r:'bronce'},{n:'Golden Boot Award',r:'bronce'},{n:'Golden Glove Award',r:'bronce'},{n:'Golden Ball Award',r:'bronce'},{n:'Qatar Skyline Premium',r:'bronce'},
 {n:'Diamante Pele Legend',r:'diamante'},{n:'Diamante Maradona Legend',r:'diamante'},{n:'Diamante Messi Legend',r:'diamante'},{n:'Diamante Ronaldo Legend',r:'diamante'},{n:'Diamante Best XI',r:'diamante'}
 ];
+
 var ST=[],SM={},_n=1;
-for(var ei=0;ei<EQ.length;ei++){var eq=EQ[ei];ST.push({id:_n,n:'Escudo '+eq.n,team:eq.c,tn:eq.n,cl:eq.cl,tp:'shield',num:_n});SM[_n]=ST[ST.length-1];_n++;ST.push({id:_n,n:'Foto Grupal '+eq.n,team:eq.c,tn:eq.n,cl:eq.cl,tp:'group',num:_n});SM[_n]=ST[ST.length-1];_n++;var jl=eq.j.split('|');for(var ji=0;ji<jl.length;ji++){ST.push({id:_n,n:jl[ji],team:eq.c,tn:eq.n,cl:eq.cl,tp:'player',num:_n});SM[_n]=ST[ST.length-1];_n++}}
-var RC={bronce:'#cd7f32',plata:'#c0c0c0',oro:'#ffd700',diamante:'#00bcd4'},RS={bronce:'shb',plata:'shs',oro:'sho',diamante:'shd'};
-for(var xi=0;xi<EXTRAS.length;xi++){var x=EXTRAS[xi];var s={id:_n,n:x.n,team:'EXTRA',tn:'Panini Extra',cl:RC[x.r],tp:'extra',rar:x.r,shm:RS[x.r],num:_n};ST.push(s);SM[_n]=s;_n++}
+for(var ei=0;ei<EQ.length;ei++){
+    var eq=EQ[ei];
+    ST.push({id:_n,n:'Escudo '+eq.n,team:eq.c,tn:eq.n,cl:eq.cl,tp:'shield',num:_n});SM[_n]=ST[ST.length-1];_n++;
+    ST.push({id:_n,n:'Foto Grupal '+eq.n,team:eq.c,tn:eq.n,cl:eq.cl,tp:'group',num:_n});SM[_n]=ST[ST.length-1];_n++;
+    var jl=eq.j.split('|');
+    for(var ji=0;ji<jl.length;ji++){
+        ST.push({id:_n,n:jl[ji],team:eq.c,tn:eq.n,cl:eq.cl,tp:'player',num:_n});SM[_n]=ST[ST.length-1];_n++;
+    }
+}
+var RC={bronce:'#cd7f32',plata:'#c0c0c0',oro:'#ffd700',diamante:'#00bcd4'};
+var RS={bronce:'shb',plata:'shs',oro:'sho',diamante:'shd'};
+for(var xi=0;xi<EXTRAS.length;xi++){
+    var x=EXTRAS[xi];
+    var s={id:_n,n:x.n,team:'EXTRA',tn:'Panini Extra',cl:RC[x.r],tp:'extra',rar:x.r,shm:RS[x.r],num:_n};
+    ST.push(s);SM[_n]=s;_n++;
+}
 var TOTAL=ST.length;
+dbg('Stickers: '+TOTAL);
 
-// === PWA ===
-try{var sv='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#0a0f0b"/><rect x="24" y="24" width="464" height="464" rx="88" fill="none" stroke="#c9a84c" stroke-width="8"/><circle cx="256" cy="220" r="70" fill="none" stroke="#c9a84c" stroke-width="6"/><text x="256" y="380" text-anchor="middle" fill="#c9a84c" font-family="sans-serif" font-weight="900" font-size="100">P</text><text x="256" y="440" text-anchor="middle" fill="#e4e4e4" font-family="sans-serif" font-weight="700" font-size="42">SWAP</text></svg>';E('ai').href='data:image/svg+xml;base64,'+btoa(sv);E('lm').href=URL.createObjectURL(new Blob([JSON.stringify({name:'Panini Swap',short_name:'Panini Swap',start_url:'.',display:'standalone',background_color:'#0a0f0b',theme_color:'#0a0f0b',orientation:'portrait',icons:[{src:'data:image/svg+xml;base64,'+btoa(sv),sizes:'512x512',type:'image/svg+xml',purpose:'any maskable'}]})],{type:'application/json'})));if('serviceWorker' in navigator){navigator.serviceWorker.register(URL.createObjectURL(new Blob(['const C="ps7";self.addEventListener("install",function(e){e.waitUntil(caches.open(C).then(function(c){return c.addAll([".","https://cdn.tailwindcss.com","https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap","https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"])}).then(function(){return self.skipWaiting()}))});self.addEventListener("activate",function(e){e.waitUntil(caches.keys().then(function(ks){return Promise.all(ks.filter(function(k){return k!==C}).map(function(k){return caches.delete(k)}))})).then(function(){return self.clients.claim()})});self.addEventListener("fetch",function(e){if(e.request.url.indexOf("/api/")!==-1)return;e.respondWith(caches.match(e.request).then(function(r){return r||fetch(e.request).then(function(resp){if(resp&&resp.status===200&&resp.type==="basic"){caches.open(C).then(function(c){c.put(e.request,resp.clone())})}return resp}).catch(function(){return new Response("Offline",{status:503})})})});'],{type:'application/javascript'}))).catch(function(){})}}catch(e){}
+/* === PWA ICONO (sin service worker) === */
+try{
+var svgIcon='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#0a0f0b"/><rect x="24" y="24" width="464" height="464" rx="88" fill="none" stroke="#c9a84c" stroke-width="8"/><circle cx="256" cy="220" r="70" fill="none" stroke="#c9a84c" stroke-width="6"/><text x="256" y="380" text-anchor="middle" fill="#c9a84c" font-family="sans-serif" font-weight="900" font-size="100">P</text><text x="256" y="440" text-anchor="middle" fill="#e4e4e4" font-family="sans-serif" font-weight="700" font-size="42">SWAP</text></svg>';
+E('ai').href='data:image/svg+xml;base64,'+btoa(svgIcon);
+var manifestObj={name:'Panini Swap',short_name:'Panini Swap',start_url:'.',display:'standalone',background_color:'#0a0f0b',theme_color:'#0a0f0b',orientation:'portrait',icons:[{src:'data:image/svg+xml;base64,'+btoa(svgIcon),sizes:'512x512',type:'image/svg+xml',purpose:'any maskable'}]};
+E('lm').href=URL.createObjectURL(new Blob([JSON.stringify(manifestObj)],{type:'application/json'}));
+}catch(e){}
 
-// === HELPERS ALBUM ===
-function hSt(st,cls,q){var bg='',xc='';if(cls==='hav')bg='<div class="badge hb"><i class="fas fa-check" style="font-size:.45rem"></i></div>';else if(cls==='rep')bg='<div class="badge rb">'+q+'</div>';var ico='';if(st.tp==='shield')ico='<i class="fas fa-shield-halved" style="font-size:.45rem;color:var(--muted)"></i>';else if(st.tp==='group')ico='<i class="fas fa-users" style="font-size:.45rem;color:var(--muted)"></i>';else if(st.tp==='extra')ico='<i class="fas fa-star" style="font-size:.45rem;color:'+st.cl+'"></i>';return'<div class="crt '+cls+'" data-n="'+st.num+'"><div class="fra '+(st.shm||'')+'" style="background:'+st.cl+'"></div><div class="cuerpo"><div class="num">'+st.num+'</div>'+ico+'<div class="nomb">'+st.n+'</div></div>'+bg+'</div>'}
+/* === HELPERS ALBUM === */
+function hSt(st,cls,q){
+    var bg='';
+    if(cls==='hav')bg='<div class="badge hb"><i class="fas fa-check" style="font-size:.45rem"></i></div>';
+    else if(cls==='rep')bg='<div class="badge rb">'+q+'</div>';
+    var ico='';
+    if(st.tp==='shield')ico='<i class="fas fa-shield-halved" style="font-size:.45rem;color:var(--muted)"></i>';
+    else if(st.tp==='group')ico='<i class="fas fa-users" style="font-size:.45rem;color:var(--muted)"></i>';
+    else if(st.tp==='extra')ico='<i class="fas fa-star" style="font-size:.45rem;color:'+st.cl+'"></i>';
+    return '<div class="crt '+cls+'" data-n="'+st.num+'"><div class="fra '+(st.shm||'')+'" style="background:'+st.cl+'"></div><div class="cuerpo"><div class="num">'+st.num+'</div>'+ico+'<div class="nomb">'+st.n+'</div></div>'+bg+'</div>';
+}
 
-function abrirSt(n){var st=SM[n],q=(dat.stickers||{})[n]||0,mc=E('modalCuerpo');mc.innerHTML='<div style="text-align:center;margin-bottom:16px"><div style="width:100px;height:130px;border-radius:10px;border:3px solid '+(q?'var(--ok)':'var(--border)')+';margin:0 auto 12px;background:var(--bg2);display:flex;flex-direction:column;overflow:hidden"><div style="height:8px;background:'+st.cl+'" class="'+(st.shm||'')+'"></div><div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px"><div class="fd" style="font-size:1.8rem">'+st.num+'</div><div style="font-size:.85rem;font-weight:600">'+st.n+'</div><div style="font-size:.7rem;color:var(--muted)">'+st.tn+(st.rar?' - '+st.rar.toUpperCase():'')+'</div></div></div><div style="font-size:1.3rem"><span class="fd" style="color:'+(q?'var(--ok)':'var(--err)')+'">'+q+'</span> <span style="font-size:.85rem;color:var(--muted)">ejemplar'+(q!==1?'es':'')+'</span></div></div><div style="display:flex;gap:12px;margin-bottom:12px"><button class="btnsm bok" style="padding:10px;flex:1" id="s0">No tengo</button><button class="btnsm bok" style="padding:10px;flex:1" id="s1">Tengo 1</button><button class="btnsm bacc" style="padding:10px;flex:1" id="sp">+1</button></div><div style="display:flex;gap:8px"><button class="btnsm bdel" style="padding:10px;flex:1" id="sm">-1</button><button class="btnsm" style="padding:10px;flex:1;border:1px solid var(--warn);color:var(--warn)" id="s2">x2</button><button class="btnsm" style="padding:10px;flex:1;border:1px solid var(--warn);color:var(--warn)" id="s3">x3</button></div>';abrirModal();function sq(v){if(v<0)v=0;var ns=JSON.parse(JSON.stringify(dat.stickers||{}));if(v===0)delete ns[n];else ns[n]=v;dat.stickers=ns;apiPost('save',{id:usr,stickers:ns}).then(function(){cerrarModal();dibAlbum(E('cnt'));toast('Cromo #'+n+' guardado','suc')}).catch(function(){toast('Error al guardar','err')})}E('s0').onclick=function(){sq(0)};E('s1').onclick=function(){sq(1)};E('sp').onclick=function(){sq(((dat.stickers||{})[n]||0)+1)};E('sm').onclick=function(){sq(Math.max(0,((dat.stickers||{})[n]||0)-1))};E('s2').onclick=function(){sq(2)};E('s3').onclick=function(){sq(3)}}
+function abrirSt(n){
+    var st=SM[n];
+    var q=(dat.stickers||{})[n]||0;
+    var mc=E('modalCuerpo');
 
-// === DIBUJAR ALBUM ===
-function dibAlbum(c){var st=dat.stickers||{},tg=0,rp=0;for(var i=0;i<ST.length;i++){var q=st[ST[i].num]||0;if(q>=1)tg++;if(q>1)rp++}var pc=Math.round(tg/TOTAL*100),ci=2*Math.PI*46,da=pc/100*ci;var h='<div style="padding:16px 16px 8px"><div style="display:flex;align-items:center;gap:16px"><div style="position:relative;width:100px;height:100px;flex-shrink:0"><svg width="100" height="100" class="progreso"><circle cx="50" cy="50" r="46" class="progbg"/><circle cx="50" cy="50" r="46" class="progfill" stroke-dasharray="'+da+' '+ci+'"/></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span class="fd" style="font-size:1.5rem;color:var(--accent)">'+pc+'%</span></div></div><div style="flex:1"><div style="font-size:.8rem;color:var(--muted);margin-bottom:6px">'+tg+' de '+TOTAL+'</div><div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:8px"><div style="height:100%;width:'+pc+'%;background:var(--ok);border-radius:3px"></div></div><div style="display:flex;gap:16px;font-size:.7rem"><span style="color:var(--ok)"><i class="fas fa-check-circle"></i> '+tg+'</span><span style="color:var(--warn)"><i class="fas fa-clone"></i> '+rp+'</span><span style="color:var(--err)"><i class="fas fa-times-circle"></i> '+(TOTAL-tg)+'</span></div></div></div></div><div class="filtro" id="fa">';var fs=[['all','Todos'],['missing','Faltantes'],['have','Tenidos'],['repeated','Repetidos'],['extra','Extra']];for(var fi=0;fi<fs.length;fi++)h+='<button class="fbtn'+(fAlb===fs[fi][0]?' on':'')+'" data-f="'+fs[fi][0]+'">'+fs[fi][1]+'</button>';h+='</div>';c.innerHTML=h;var fb=c.querySelectorAll('#fa .fbtn');for(var bi=0;bi<fb.length;bi++)fb[bi].onclick=function(){fAlb=this.getAttribute('data-f');dibAlbum(E('cnt'))};if(fAlb!=='missing'){var ext=[];for(var x=0;x<ST.length;x++)if(ST[x].tp==='extra')ext.push(ST[x]);var fe=[];for(var fx=0;fx<ext.length;fx++){var qs=st[ext[fx].num]||0;if(fAlb==='all'||fAlb==='extra')fe.push(ext[fx]);else if(fAlb==='have'&&qs>=1)fe.push(ext[fx]);else if(fAlb==='repeated'&&qs>1)fe.push(ext[fx])}if(fe.length){var ic2=colaps['EXTRA'];var eh='<div class="equip"><div class="eqhd" data-eq="EXTRA"><div class="dotc" style="background:linear-gradient(90deg,#cd7f32,#c0c0c0,#ffd700,#00bcd4)"></div><span style="font-size:.85rem;font-weight:600;flex:1">Panini Extra</span><span style="font-size:.7rem;color:var(--muted)">'+ext.filter(function(x){return st[x.num]>=1}).length+'/'+ext.length+'</span><i class="fas fa-chevron-'+(ic2?'right':'down')+'" style="color:var(--muted);font-size:.7rem"></i></div><div class="eqstick'+(ic2?' col':'')+'" style="max-height:2000px"><div class="grd">';for(var fi2=0;fi2<fe.length;fi2++){var fss=fe[fi2],fqs=st[fss.num]||0;eh+=hSt(fss,fqs===0?'mis':fqs===1?'hav':'rep',fqs)}eh+='</div></div></div>';c.insertAdjacentHTML('beforeend',eh);c.querySelector('[data-eq="EXTRA"]').onclick=function(){colaps['EXTRA']=!colaps['EXTRA'];dibAlbum(E('cnt'))}}for(var eqi=0;eqi<EQ.length;eqi++){var eq=EQ[eqi],tS=[],ht2=0;for(var ts=0;ts<ST.length;ts++)if(ST[ts].team===eq.c)tS.push(ST[ts]);for(var ht3=0;ht3<tS.length;ht3++)if(st[tS[ht3].num]>=1)ht2++;var ft2=[];for(var ft3=0;ft3<tS.length;ft3++){var fst=tS[ft3],fqt=st[fst.num]||0;if(fAlb==='all')ft2.push(fst);else if(fAlb==='missing'&&fqt===0)ft2.push(fst);else if(fAlb==='have'&&fqt>=1)ft2.push(fst);else if(fAlb==='repeated'&&fqt>1)ft2.push(fst)}if(fAlb==='missing'&&ft2.length===0)continue;var eqc=colaps[eq.c],eqh='<div class="equip"><div class="eqhd" data-eq="'+eq.c+'"><div class="dotc" style="background:'+eq.cl+'"></div><span style="font-size:.85rem;font-weight:600;flex:1">'+eq.n+'</span><div class="barrap"><div class="barrapf" style="width:'+Math.round(ht2/tS.length*100)+'%"></div></div><span style="font-size:.7rem;color:var(--muted);margin-left:6px">'+ht2+'/'+tS.length+'</span><i class="fas fa-chevron-'+(eqc?'right':'down')+'" style="color:var(--muted);font-size:.7rem;margin-left:4px"></i></div><div class="eqstick'+(eqc?' col':'')+'" style="max-height:3000px"><div class="grd">';for(var efi=0;efi<ft2.length;efi++){var efs=ft2[efi],efq=st[efs.num]||0;eqh+=hSt(efs,efq===0?'mis':efq===1?'hav':'rep',efq)}eqh+='</div></div></div>';c.insertAdjacentHTML('beforeend',eqh);c.querySelector('[data-eq="'+eq.c+'"]').onclick=(function(cd){return function(){colaps[cd]=!colaps[cd];dibAlbum(E('cnt'))}})(eq.c)}var allS=c.querySelectorAll('.crt[data-n]');for(var ci2=0;ci2<allS.length;ci2++)allS[ci2].onclick=(function(n){return function(){abrirSt(n)}})(parseInt(allS[ci2].getAttribute('data-n')))}
+    /* Construir HTML en pasos para evitar errores de parentesis */
+    var borderCol = q ? 'var(--ok)' : 'var(--border)';
+    var qtyCol = q ? 'var(--ok)' : 'var(--err)';
+    var plural = q !== 1 ? 'es' : '';
+    var rarTxt = st.rar ? ' - ' + st.rar.toUpperCase() : '';
 
-// === DIBUJAR BUSCAR ===
-function dibBuscar(c){var st=dat.stickers||{},fal=[],rps=[];for(var i=0;i<ST.length;i++){var q=st[ST[i].num]||0;if(q===0)fal.push(ST[i]);if(q>1)rps.push(ST[i])}var h='<div style="padding:16px 16px 8px"><div class="fd" style="font-size:1.4rem;color:var(--accent);margin-bottom:4px">Intercambiar</div><div style="font-size:.8rem;color:var(--muted);margin-bottom:12px">Datos en la nube</div><div style="display:flex;gap:16px"><div class="statc" style="flex:1"><div class="statn" style="color:var(--err)">'+fal.length+'</div><div class="statl">Me faltan</div></div><div class="statc" style="flex:1"><div class="statn" style="color:var(--warn)">'+rps.length+'</div><div class="statl">Repetidos</div></div></div></div><div class="filtro" id="fb2"><button class="fbtn'+(fBus==='missing'?' on':'')+'" data-s="missing">Faltantes</button><button class="fbtn'+(fBus==='allrep'?' on':'')+'" data-s="allrep">Todos repetidos</button></div><div id="resBus" style="padding-top:8px"><div style="text-align:center;padding:24px;color:var(--muted)"><div class="carg" style="margin:0 auto 8px"></div>Buscando...</div></div>';c.innerHTML=h;var bs2=c.querySelectorAll('#fb2 .fbtn');for(var b=0;b<bs2.length;b++)bs2[b].onclick=(function(v){return function(){fBus=v;dibBuscar(E('cnt'))}})(bs2[b].getAttribute('data-s'));apiGet({a:'search',id:usr,mode:fBus==='missing'?'missing':'all'}).then(function(r){var res=r.results||[],div=E('resBus');if(!res.length){div.innerHTML='<div class="vacio"><i class="fas fa-search"></i><div>Sin coincidencias</div></div>';return}var gr={};for(var ri=0;ri<res.length;ri++){var rv=res[ri];if(!gr[rv.stickerNum])gr[rv.stickerNum]={st:SM[rv.stickerNum],u:[]};gr[rv.stickerNum].u.push(rv)}var gh='';var gk=Object.keys(gr);for(var gi=0;gi<gk.length;gi++){var g=gr[gk[gi]];if(!g.st)continue;gh+='<div class="rcard" data-sn="'+g.st.num+'"><div class="minis"><div class="mf" style="background:'+g.st.cl+'"></div><div class="mn">'+g.st.num+'</div></div><div style="flex:1;min-width:0"><div style="font-size:.85rem;font-weight:600">'+g.st.n+'</div><div style="font-size:.7rem;color:var(--muted)">'+g.st.tn+'</div><div style="font-size:.7rem;color:var(--ok);margin-top:2px"><i class="fas fa-users"></i> '+g.u.length+' lo tiene'+(g.u.length>1?'n':'')+' rep</div></div><i class="fas fa-chevron-right" style="color:var(--muted)"></i></div>'}div.innerHTML=gh;var rcs=div.querySelectorAll('[data-sn]');for(var rc=0;rc<rcs.length;rc++)rcs[rc].onclick=(function(n){return function(){verMatch(n)}})(parseInt(rcs[rc].getAttribute('data-sn')))}).catch(function(){E('resBus').innerHTML='<div class="vacio"><i class="fas fa-wifi"></i><div>Error</div></div>'})}
+    mc.innerHTML = '<div style="text-align:center;margin-bottom:16px">' +
+        '<div style="width:100px;height:130px;border-radius:10px;border:3px solid '+borderCol+';margin:0 auto 12px;background:var(--bg2);display:flex;flex-direction:column;overflow:hidden">' +
+            '<div style="height:8px;background:'+st.cl+'" class="'+(st.shm||'')+'"></div>' +
+            '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px">' +
+                '<div class="fd" style="font-size:1.8rem">'+st.num+'</div>' +
+                '<div style="font-size:.85rem;font-weight:600">'+st.n+'</div>' +
+                '<div style="font-size:.7rem;color:var(--muted)">'+st.tn+rarTxt+'</div>' +
+            '</div>' +
+        '</div>' +
+        '<div style="font-size:1.3rem"><span class="fd" style="color:'+qtyCol+'">'+q+'</span> <span style="font-size:.85rem;color:var(--muted)">ejemplar'+plural+'</span></div>' +
+    '</div>' +
+    '<div style="display:flex;gap:12px;margin-bottom:12px">' +
+        '<button class="btnsm bok" style="padding:10px;flex:1" id="s0">No tengo</button>' +
+        '<button class="btnsm bok" style="padding:10px;flex:1" id="s1">Tengo 1</button>' +
+        '<button class="btnsm bacc" style="padding:10px;flex:1" id="sp">+1</button>' +
+    '</div>' +
+    '<div style="display:flex;gap:8px">' +
+        '<button class="btnsm bdel" style="padding:10px;flex:1" id="sm">-1</button>' +
+        '<button class="btnsm" style="padding:10px;flex:1;border:1px solid var(--warn);color:var(--warn)" id="s2">x2</button>' +
+        '<button class="btnsm" style="padding:10px;flex:1;border:1px solid var(--warn);color:var(--warn)" id="s3">x3</button>' +
+    '</div>';
 
-function verMatch(n){var st=SM[n],ih=(dat.stickers||{})[n]||0;empVista('Cromo #'+n,function(c){c.innerHTML='<div style="text-align:center;padding:16px"><div style="width:90px;height:120px;border-radius:10px;border:3px solid '+(ih?'var(--ok)':'var(--err)')+';margin:0 auto 10px;background:var(--bg2);display:flex;flex-direction:column;overflow:hidden"><div style="height:6px;background:'+st.cl+'"></div><div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px"><div class="fd" style="font-size:1.5rem">'+st.num+'</div><div style="font-size:.8rem;font-weight:600">'+st.n+'</div><div style="font-size:.65rem;color:var(--muted)">'+st.tn+'</div></div></div><div style="font-size:.8rem;color:'+(ih?'var(--ok)':'var(--err)')+'">'+(ih?'Ya lo tienes':'Te falta')+'</div></div><div style="padding:0 16px 8px;font-size:.85rem;font-weight:600;color:var(--muted)">Quienes lo tienen</div><div id="ml"><div style="text-align:center;padding:16px;color:var(--muted)"><div class="carg" style="margin:0 auto 8px;width:24px;height:24px;border-width:2px"></div></div></div>';apiGet({a:'search',id:usr,mode:'missing'}).then(function(r){var ms=[],rr=r.results||[];for(var i=0;i<rr.length;i++)if(rr[i].stickerNum===n)ms.push(rr[i]);var ml=E('ml');if(!ms.length){ml.innerHTML='<div class="vacio" style="padding:24px">Nadie lo tiene</div>';return}var mh='';for(var m=0;m<ms.length;m++){var mm=ms[m];mh+='<div class="rcard" data-oid="'+mm.userId+'"><div class="avat" style="background:hsl('+uidC(mm.userId)+',60%,35%)">'+mm.userName[0]+'</div><div style="flex:1;min-width:0"><div style="font-size:.85rem;font-weight:600">'+mm.userName+'</div><div style="font-size:.7rem;color:'+(mm.qty>1?'var(--warn)':'var(--ok)')+'">'+(mm.qty>1?'<i class="fas fa-clone"></i> '+mm.qty+' rep':'1 ejemplar')+'</div></div><i class="fas fa-comment" style="color:var(--accent)"></i></div>'}ml.innerHTML=mh;var mc2=ml.querySelectorAll('[data-oid]');for(var mc=0;mc<mc2.length;mc++){mc2[mc].onclick=(function(o){return function(){abrirChatCon(o)}})(mc2[mc].getAttribute('data-o'))}}).catch(function(){E('ml').innerHTML='<div class="vacio"><i class="fas fa-wifi"></i><div>Error</div></div>'})})}
+    abrirModal();
 
-// === DIBUJAR MENSAJES ===
-function dibMensajes(c){c.innerHTML='<div style="padding:16px 16px 8px"><div class="fd" style="font-size:1.4rem;color:var(--accent);margin-bottom:4px">Mensajes</div></div><div id="cl"><div style="text-align:center;padding:24px;color:var(--muted)"><div class="carg" style="margin:0 auto 8px"></div></div></div>';apiGet({a:'convs',id:usr}).then(function(cvs){return apiGet({a:'users'}).then(function(users){var uM={};for(var u=0;u<users.length;u++)uM[users[u].id]=users[u];var cl=E('cl');if(!cvs.length){cl.innerHTML='<div class="vacio"><i class="fas fa-comments"></i><div>Sin conversaciones</div></div>';return}var h='';for(var ci=0;ci<cvs.length;ci++){var cv=cvs[ci],oid=cv.users[0]===usr?cv.users[1]:cv.users[0],ot=uM[oid];if(!ot)continue;var last=cv.messages[cv.messages.length-1],nl=0;for(var m=0;m<cv.messages.length;m++)if(cv.messages[m].from!==usr&&!cv.messages[m].read)nl++;h+='<div class="convr'+(nl?' noleido':'')+'" data-k="'+cv.key+'" data-o="'+oid+'"><div class="avat" style="background:hsl('+uidC(oid)+',60%,35%)">'+ot.name[0]+'</div><div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:.85rem;font-weight:600">'+ot.name+'</span><span style="font-size:.62rem;color:var(--muted)">'+fmtH(last?last.time:null)+'</span></div><div style="font-size:.75rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px">'+(last?esc(last.text.substring(0,50)):'')+'</div></div></div>'}cl.innerHTML=h;var its=cl.querySelectorAll('[data-k]');for(var it=0;it<its.length;it++)its[it].onclick=(function(k,o){return function(){abrirChat(k,o)}})(its[it].getAttribute('data-k'),its[it].getAttribute('data-o'))})}).catch(function(){E('cl').innerHTML='<div class="vacio"><i class="fas fa-wifi"></i><div>Error</div></div>'})}
+    function sq(v){
+        if(v<0)v=0;
+        var ns=JSON.parse(JSON.stringify(dat.stickers||{}));
+        if(v===0)delete ns[n];else ns[n]=v;
+        dat.stickers=ns;
+        apiPost('save',{id:usr,stickers:ns}).then(function(){
+            cerrarModal();dibAlbum(E('cnt'));toast('Cromo #'+n+' guardado','suc');
+        }).catch(function(){toast('Error al guardar','err')});
+    }
+    E('s0').onclick=function(){sq(0)};
+    E('s1').onclick=function(){sq(1)};
+    E('sp').onclick=function(){sq(((dat.stickers||{})[n]||0)+1)};
+    E('sm').onclick=function(){sq(Math.max(0,((dat.stickers||{})[n]||0)-1))};
+    E('s2').onclick=function(){sq(2)};
+    E('s3').onclick=function(){sq(3)};
+}
+
+/* === DIBUJAR ALBUM === */
+function dibAlbum(c){
+    var st=dat.stickers||{},tg=0,rp=0;
+    for(var i=0;i<ST.length;i++){var q=st[ST[i].num]||0;if(q>=1)tg++;if(q>1)rp++}
+    var pc=Math.round(tg/TOTAL*100),ci=2*Math.PI*46,da=pc/100*ci;
+    var h='<div style="padding:16px 16px 8px"><div style="display:flex;align-items:center;gap:16px"><div style="position:relative;width:100px;height:100px;flex-shrink:0"><svg width="100" height="100" class="progreso"><circle cx="50" cy="50" r="46" class="progbg"/><circle cx="50" cy="50" r="46" class="progfill" stroke-dasharray="'+da+' '+ci+'"/></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><span class="fd" style="font-size:1.5rem;color:var(--accent)">'+pc+'%</span></div></div><div style="flex:1"><div style="font-size:.8rem;color:var(--muted);margin-bottom:6px">'+tg+' de '+TOTAL+'</div><div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:8px"><div style="height:100%;width:'+pc+'%;background:var(--ok);border-radius:3px"></div></div><div style="display:flex;gap:16px;font-size:.7rem"><span style="color:var(--ok)"><i class="fas fa-check-circle"></i> '+tg+'</span><span style="color:var(--warn)"><i class="fas fa-clone"></i> '+rp+'</span><span style="color:var(--err)"><i class="fas fa-times-circle"></i> '+(TOTAL-tg)+'</span></div></div></div></div>';
+    h+='<div class="filtro" id="fa">';
+    var fs=[['all','Todos'],['missing','Faltantes'],['have','Tenidos'],['repeated','Repetidos'],['extra','Extra']];
+    for(var fi=0;fi<fs.length;fi++){h+='<button class="fbtn'+(fAlb===fs[fi][0]?' on':'')+'" data-f="'+fs[fi][0]+'">'+fs[fi][1]+'</button>'}
+    h+='</div>';
+    c.innerHTML=h;
+    var fb=c.querySelectorAll('#fa .fbtn');
+    for(var bi=0;bi<fb.length;bi++){fb[bi].onclick=function(){fAlb=this.getAttribute('data-f');dibAlbum(E('cnt'))}}
+
+    if(fAlb!=='missing'){
+        var ext=[];
+        for(var x=0;x<ST.length;x++){if(ST[x].tp==='extra')ext.push(ST[x])}
+        var fe=[];
+        for(var fx=0;fx<ext.length;fx++){
+            var qs=st[ext[fx].num]||0;
+            if(fAlb==='all'||fAlb==='extra')fe.push(ext[fx]);
+            else if(fAlb==='have'&&qs>=1)fe.push(ext[fx]);
+            else if(fAlb==='repeated'&&qs>1)fe.push(ext[fx]);
+        }
+        if(fe.length){
+            var ic2=colaps['EXTRA'];
+            var eh='<div class="equip"><div class="eqhd" data-eq="EXTRA"><div class="dotc" style="background:linear-gradient(90deg,#cd7f32,#c0c0c0,#ffd700,#00bcd4)"></div><span style="font-size:.85rem;font-weight:600;flex:1">Panini Extra</span><span style="font-size:.7rem;color:var(--muted)">'+ext.filter(function(x){return st[x.num]>=1}).length+'/'+ext.length+'</span><i class="fas fa-chevron-'+(ic2?'right':'down')+'" style="color:var(--muted);font-size:.7rem"></i></div><div class="eqstick'+(ic2?' col':'')+'" style="max-height:2000px"><div class="grd">';
+            for(var fi2=0;fi2<fe.length;fi2++){var fss=fe[fi2],fqs=st[fss.num]||0;eh+=hSt(fss,fqs===0?'mis':fqs===1?'hav':'rep',fqs)}
+            eh+='</div></div></div>';
+            c.insertAdjacentHTML('beforeend',eh);
+            c.querySelector('[data-eq="EXTRA"]').onclick=function(){colaps['EXTRA']=!colaps['EXTRA'];dibAlbum(E('cnt'))};
+        }
+    }
+
+    for(var eqi=0;eqi<EQ.length;eqi++){
+        var eq=EQ[eqi],tS=[],ht2=0;
+        for(var ts=0;ts<ST.length;ts++){if(ST[ts].team===eq.c)tS.push(ST[ts])}
+        for(var ht3=0;ht3<tS.length;ht3++){if(st[tS[ht3].num]>=1)ht2++}
+        var ft2=[];
+        for(var ft3=0;ft3<tS.length;ft3++){
+            var fst=tS[ft3],fqt=st[fst.num]||0;
+            if(fAlb==='all')ft2.push(fst);
+            else if(fAlb==='missing'&&fqt===0)ft2.push(fst);
+            else if(fAlb==='have'&&fqt>=1)ft2.push(fst);
+            else if(fAlb==='repeated'&&fqt>1)ft2.push(fst);
+        }
+        if(fAlb==='missing'&&ft2.length===0)continue;
+        var eqc=colaps[eq.c];
+        var eqh='<div class="equip"><div class="eqhd" data-eq="'+eq.c+'"><div class="dotc" style="background:'+eq.cl+'"></div><span style="font-size:.85rem;font-weight:600;flex:1">'+eq.n+'</span><div class="barrap"><div class="barrapf" style="width:'+Math.round(ht2/tS.length*100)+'%"></div></div><span style="font-size:.7rem;color:var(--muted);margin-left:6px">'+ht2+'/'+tS.length+'</span><i class="fas fa-chevron-'+(eqc?'right':'down')+'" style="color:var(--muted);font-size:.7rem;margin-left:4px"></i></div><div class="eqstick'+(eqc?' col':'')+'" style="max-height:3000px"><div class="grd">';
+        for(var efi=0;efi<ft2.length;efi++){var efs=ft2[efi],efq=st[efs.num]||0;eqh+=hSt(efs,efq===0?'mis':efq===1?'hav':'rep',efq)}
+        eqh+='</div></div></div>';
+        c.insertAdjacentHTML('beforeend',eqh);
+        c.querySelector('[data-eq="'+eq.c+'"]').onclick=(function(cd){return function(){colaps[cd]=!colaps[cd];dibAlbum(E('cnt'))}})(eq.c);
+    }
+
+    var allS=c.querySelectorAll('.crt[data-n]');
+    for(var ci2=0;ci2<allS.length;ci2++){allS[ci2].onclick=(function(n){return function(){abrirSt(n)}})(parseInt(allS[ci2].getAttribute('data-n')))}
+}
+
+/* === DIBUJAR BUSCAR === */
+function dibBuscar(c){
+    var st=dat.stickers||{},fal=[],rps=[];
+    for(var i=0;i<ST.length;i++){var q=st[ST[i].num]||0;if(q===0)fal.push(ST[i]);if(q>1)rps.push(ST[i])}
+    var h='<div style="padding:16px 16px 8px"><div class="fd" style="font-size:1.4rem;color:var(--accent);margin-bottom:4px">Intercambiar</div><div style="font-size:.8rem;color:var(--muted);margin-bottom:12px">Datos en la nube</div><div style="display:flex;gap:16px"><div class="statc" style="flex:1"><div class="statn" style="color:var(--err)">'+fal.length+'</div><div class="statl">Me faltan</div></div><div class="statc" style="flex:1"><div class="statn" style="color:var(--warn)">'+rps.length+'</div><div class="statl">Repetidos</div></div></div></div>';
+    h+='<div class="filtro" id="fb2"><button class="fbtn'+(fBus==='missing'?' on':'')+'" data-s="missing">Faltantes</button><button class="fbtn'+(fBus==='allrep'?' on':'')+'" data-s="allrep">Todos repetidos</button></div>';
+    h+='<div id="resBus" style="padding-top:8px"><div style="text-align:center;padding:24px;color:var(--muted)"><div class="carg" style="margin:0 auto 8px"></div>Buscando...</div></div>';
+    c.innerHTML=h;
+    var bs2=c.querySelectorAll('#fb2 .fbtn');
+    for(var b=0;b<bs2.length;b++){bs2[b].onclick=(function(v){return function(){fBus=v;dibBuscar(E('cnt'))}})(bs2[b].getAttribute('data-s'))}
+
+    apiGet({a:'search',id:usr,mode:fBus==='missing'?'missing':'all'}).then(function(r){
+        var res=r.results||[],div=E('resBus');
+        if(!res.length){div.innerHTML='<div class="vacio"><i class="fas fa-search"></i><div>Sin coincidencias</div></div>';return}
+        var gr={};
+        for(var ri=0;ri<res.length;ri++){var rv=res[ri];if(!gr[rv.stickerNum])gr[rv.stickerNum]={st:SM[rv.stickerNum],u:[]};gr[rv.stickerNum].u.push(rv)}
+        var gh='';
+        var gk=Object.keys(gr);
+        for(var gi=0;gi<gk.length;gi++){var g=gr[gk[gi]];if(!g.st)continue;gh+='<div class="rcard" data-sn="'+g.st.num+'"><div class="minis"><div class="mf" style="background:'+g.st.cl+'"></div><div class="mn">'+g.st.num+'</div></div><div style="flex:1;min-width:0"><div style="font-size:.85rem;font-weight:600">'+g.st.n+'</div><div style="font-size:.7rem;color:var(--muted)">'+g.st.tn+'</div><div style="font-size:.7rem;color:var(--ok);margin-top:2px"><i class="fas fa-users"></i> '+g.u.length+' lo tiene'+(g.u.length>1?'n':'')+' rep</div></div><i class="fas fa-chevron-right" style="color:var(--muted)"></i></div>'}
+        div.innerHTML=gh;
+        var rcs=div.querySelectorAll('[data-sn]');
+        for(var rc=0;rc<rcs.length;rc++){rcs[rc].onclick=(function(n){return function(){verMatch(n)}})(parseInt(rcs[rc].getAttribute('data-sn')))}
+    }).catch(function(){E('resBus').innerHTML='<div class="vacio"><i class="fas fa-wifi"></i><div>Error de conexion</div></div>'});
+}
+
+function verMatch(n){
+    var st=SM[n],ih=(dat.stickers||{})[n]||0;
+    var borderCol2 = ih ? 'var(--ok)' : 'var(--err)';
+    var statusCol = ih ? 'var(--ok)' : 'var(--err)';
+    var statusTxt = ih ? 'Ya lo tienes' : 'Te falta';
+
+    empVista('Cromo #'+n,function(c){
+        c.innerHTML='<div style="text-align:center;padding:16px"><div style="width:90px;height:120px;border-radius:10px;border:3px solid '+borderCol2+';margin:0 auto 10px;background:var(--bg2);display:flex;flex-direction:column;overflow:hidden"><div style="height:6px;background:'+st.cl+'"></div><div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px"><div class="fd" style="font-size:1.5rem">'+st.num+'</div><div style="font-size:.8rem;font-weight:600">'+st.n+'</div><div style="font-size:.65rem;color:var(--muted)">'+st.tn+'</div></div></div><div style="font-size:.8rem;color:'+statusCol+'">'+statusTxt+'</div></div><div style="padding:0 16px 8px;font-size:.85rem;font-weight:600;color:var(--muted)">Quienes lo tienen</div><div id="ml"><div style="text-align:center;padding:16px;color:var(--muted)"><div class="carg" style="margin:0 auto 8px;width:24px;height:24px;border-width:2px"></div></div></div>';
+
+        apiGet({a:'search',id:usr,mode:'missing'}).then(function(r){
+            var ms=[],rr=r.results||[];
+            for(var i=0;i<rr.length;i++){if(rr[i].stickerNum===n)ms.push(rr[i])}
+            var ml=E('ml');
+            if(!ms.length){ml.innerHTML='<div class="vacio" style="padding:24px">Nadie lo tiene como repetido</div>';return}
+            var mh='';
+            for(var m=0;m<ms.length;m++){
+                var mm=ms[m];
+                var qtyInfo = mm.qty>1 ? '<i class="fas fa-clone"></i> '+mm.qty+' rep' : '1 ejemplar';
+                var qtyColor = mm.qty>1 ? 'var(--warn)' : 'var(--ok)';
+                mh+='<div class="rcard" data-oid="'+mm.userId+'"><div class="avat" style="background:hsl('+uidC(mm.userId)+',60%,35%)">'+mm.userName[0]+'</div><div style="flex:1;min-width:0"><div style="font-size:.85rem;font-weight:600">'+mm.userName+'</div><div style="font-size:.7rem;color:'+qtyColor+'">'+qtyInfo+'</div></div><i class="fas fa-comment" style="color:var(--accent)"></i></div>';
+            }
+            ml.innerHTML=mh;
+            var mc2=ml.querySelectorAll('[data-oid]');
+            for(var mc=0;mc<mc2.length;mc++){mc2[mc].onclick=(function(o){return function(){abrirChatCon(o)}})(mc2[mc].getAttribute('data-o'))}
+        }).catch(function(){E('ml').innerHTML='<div class="vacio"><i class="fas fa-wifi"></i><div>Error</div></div>'});
+    });
+}
+
+/* === DIBUJAR MENSAJES === */
+function dibMensajes(c){
+    c.innerHTML='<div style="padding:16px 16px 8px"><div class="fd" style="font-size:1.4rem;color:var(--accent);margin-bottom:4px">Mensajes</div></div><div id="cl"><div style="text-align:center;padding:24px;color:var(--muted)"><div class="carg" style="margin:0 auto 8px"></div></div></div>';
+    apiGet({a:'convs',id:usr}).then(function(cvs){
+        return apiGet({a:'users'}).then(function(users){
+            var uM={};for(var u=0;u<users.length;u++){uM[users[u].id]=users[u]}
+            var cl=E('cl');
+            if(!cvs.length){cl.innerHTML='<div class="vacio"><i class="fas fa-comments"></i><div>Sin conversaciones</div></div>';return}
+            var h='';
+            for(var ci=0;ci<cvs.length;ci++){
+                var cv=cvs[ci],oid=cv.users[0]===usr?cv.users[1]:cv.users[0],ot=uM[oid];
+                if(!ot)continue;
+                var last=cv.messages[cv.messages.length-1],nl=0;
+                for(var m=0;m<cv.messages.length;m++){if(cv.messages[m].from!==usr&&!cv.messages[m].read)nl++}
+                h+='<div class="convr'+(nl?' noleido':'')+'" data-k="'+cv.key+'" data-o="'+oid+'"><div class="avat" style="background:hsl('+uidC(oid)+',60%,35%)">'+ot.name[0]+'</div><div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:.85rem;font-weight:600">'+ot.name+'</span><span style="font-size:.62rem;color:var(--muted)">'+fmtH(last?last.time:null)+'</span></div><div style="font-size:.75rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px">'+(last?esc(last.text.substring(0,50)):'')+'</div></div></div>';
+            }
+            cl.innerHTML=h;
+            var its=cl.querySelectorAll('[data-k]');
+            for(var it=0;it<its.length;it++){its[it].onclick=(function(k,o){return function(){abrirChat(k,o)}})(its[it].getAttribute('data-k'),its[it].getAttribute('data-o'))}
+        });
+    }).catch(function(){E('cl').innerHTML='<div class="vacio"><i class="fas fa-wifi"></i><div>Error de conexion</div></div>'});
+}
 
 function abrirChatCon(o){abrirChat(null,o)}
-function abrirChat(k,o){if(!k)k=[usr,o].sort().join('-');chatK=k;chatOid=o;apiGet({a:'users'}).then(function(users){var other=null;for(var u=0;u<users.length;u++)if(users[u].id===o)other=users[u];empVista(other?other.name:o,function(c){dibChat(c)})})}
+function abrirChat(k,o){
+    if(!k)k=[usr,o].sort().join('-');
+    chatK=k;chatOid=o;
+    apiGet({a:'users'}).then(function(users){
+        var other=null;for(var u=0;u<users.length;u++){if(users[u].id===o)other=users[u]}
+        empVista(other?other.name:o,function(c){dibChat(c)});
+    });
+}
 
-function dibChat(c){apiGet({a:'read',key:chatK,id:usr}).then(function(){return apiGet({a:'conv',key:chatK})}).then(function(cv){var ms=cv.messages||[],h='<div class="chatm" id="cms">';for(var m=0;m<ms.length;m++)h+='<div class="burb '+(ms[m].from===usr?'env':'rec')+'">'+esc(ms[m].text)+'<div class="hora">'+fmtH(ms[m].time)+'</div></div>';h+='</div><div class="chatbar"><input type="text" class="chatinp" id="ci" placeholder="Escribe un mensaje..."><button class="envbtn" id="cs" aria-label="Enviar"><i class="fas fa-paper-plane"></i></button></div>';c.innerHTML=h;var ms2=E('cms');if(ms2)ms2.scrollTop=ms2.scrollHeight;E('cs').onclick=envMsg;E('ci').onkeydown=function(e){if(e.key==='Enter')envMsg()}}).catch(function(){c.innerHTML='<div class="vacio"><i class="fas fa-wifi"></i><div>Error</div></div>'})}
+function dibChat(c){
+    apiGet({a:'read',key:chatK,id:usr}).then(function(){
+        return apiGet({a:'conv',key:chatK});
+    }).then(function(cv){
+        var ms=cv.messages||[],h='<div class="chatm" id="cms">';
+        for(var m=0;m<ms.length;m++){h+='<div class="burb '+(ms[m].from===usr?'env':'rec')+'">'+esc(ms[m].text)+'<div class="hora">'+fmtH(ms[m].time)+'</div></div>'}
+        h+='</div><div class="chatbar"><input type="text" class="chatinp" id="ci" placeholder="Escribe un mensaje..."><button class="envbtn" id="cs" aria-label="Enviar"><i class="fas fa-paper-plane"></i></button></div>';
+        c.innerHTML=h;
+        var ms2=E('cms');if(ms2)ms2.scrollTop=ms2.scrollHeight;
+        E('cs').onclick=envMsg;
+        E('ci').onkeydown=function(e){if(e.key==='Enter')envMsg()};
+    }).catch(function(){c.innerHTML='<div class="vacio"><i class="fas fa-wifi"></i><div>Error de conexion</div></div>'});
+}
 
-function envMsg(){var inp=E('ci'),txt=inp.value.trim();if(!txt)return;inp.value='';apiPost('msg',{key:chatK,from:usr,text:txt}).then(function(){dibChat(E('cnt'))}).catch(function(){toast('Error al enviar','err')})}
+function envMsg(){
+    var inp=E('ci'),txt=inp.value.trim();
+    if(!txt)return;inp.value='';
+    apiPost('msg',{key:chatK,from:usr,text:txt}).then(function(){dibChat(E('cnt'))}).catch(function(){toast('Error al enviar','err')});
+}
 
-// === DIBUJAR PERFIL ===
-function dibPerfil(c){var st=dat.stickers||{},tg=0,rt=0;for(var i=0;i<ST.length;i++){var q=st[ST[i].num]||0;if(q>=1)tg++;if(q>1)rt+=q-1}var pc=Math.round(tg/TOTAL*100),rps=[];for(var r=0;r<ST.length;r++)if(st[ST[r].num]>1)rps.push(ST[r]);var h='<div style="text-align:center;padding:16px"><div class="avat" style="width:64px;height:64px;font-size:1.5rem;background:hsl('+uidC(usr)+',60%,35%);margin:0 auto 10px">'+dat.name[0]+'</div><div style="font-size:1.1rem;font-weight:700">'+dat.name+'</div><div style="font-size:.78rem;color:var(--muted);margin-top:2px">Codigo: <span class="fd" style="color:var(--accent);font-size:.9rem">'+usr+'</span></div>'+(dat.phone?'<div style="font-size:.78rem;color:var(--muted);margin-top:2px"><i class="fas fa-phone" style="font-size:.65rem"></i> '+dat.phone+'</div>':'')+'<div style="font-size:.68rem;color:var(--ok);margin-top:6px"><i class="fas fa-cloud"></i> Datos en la nube</div></div><div style="display:flex;gap:12px;padding:0 16px;margin-bottom:16px"><div class="statc" style="flex:1"><div class="statn" style="color:var(--ok)">'+pc+'%</div><div class="statl">Completado</div></div><div class="statc" style="flex:1"><div class="statn" style="color:var(--warn)">'+rt+'</div><div class="statl">Rep. disponibles</div></div></div><div style="padding:0 16px"><div style="font-size:.8rem;font-weight:600;color:var(--muted);margin-bottom:8px">Mis repetidos ('+rps.length+')</div></div>';if(!rps.length)h+='<div class="vacio" style="padding:24px"><i class="fas fa-clone"></i><div>Sin repetidos</div></div>';else{h+='<div class="grd">';for(var ri=0;ri<Math.min(rps.length,40);ri++){var rs=rps[ri];h+='<div class="crt rep" data-n="'+rs.num+'"><div class="fra '+(rs.shm||'')+'" style="background:'+rs.cl+'"></div><div class="cuerpo"><div class="num">'+rs.num+'</div><div class="nomb">'+rs.n+'</div></div><div class="badge rb">'+st[rs.num]+'</div></div>'}if(rps.length>40)h+='<div style="grid-column:1/-1;text-align:center;padding:12px;color:var(--muted);font-size:.75rem">... y '+(rps.length-40)+' mas</div>';h+='</div>'}h+='<div style="padding:20px 16px"><div style="height:1px;background:var(--border);margin-bottom:16px"></div><button class="btns" style="width:100%;display:block" id="btnComp"><i class="fas fa-share-alt"></i> Compartir</button></div>';c.innerHTML=h;var sc2=c.querySelectorAll('.crt[data-n]');for(var s=0;s<sc2.length;s++)sc2[s].onclick=(function(n){return function(){abrirSt(n)}})(parseInt(sc2[s].getAttribute('data-n')));E('btnComp').onclick=function(){var txt='Panini Swap - '+dat.name+' ('+usr+')\nRepetidos: '+rps.length+'\n\n';for(var i=0;i<Math.min(rps.length,30);i++)txt+='#'+rps[i].num+' '+rps[i].n+' ('+rps[i].tn+') x'+st[rps[i].num]+'\n';if(rps.length>30)txt+='... y '+(rps.length-30)+' mas';if(navigator.share)navigator.share({title:'Panini Swap',text:txt}).catch(function(){});else try{navigator.clipboard.writeText(txt);toast('Copiado','suc')}catch(e){}}}
+/* === DIBUJAR PERFIL === */
+function dibPerfil(c){
+    var st=dat.stickers||{},tg=0,rt=0;
+    for(var i=0;i<ST.length;i++){var q=st[ST[i].num]||0;if(q>=1)tg++;if(q>1)rt+=q-1}
+    var pc=Math.round(tg/TOTAL*100),rps=[];
+    for(var r=0;r<ST.length;r++){if(st[ST[r].num]>1)rps.push(ST[r])}
+    var h='<div style="text-align:center;padding:16px"><div class="avat" style="width:64px;height:64px;font-size:1.5rem;background:hsl('+uidC(usr)+',60%,35%);margin:0 auto 10px">'+dat.name[0]+'</div><div style="font-size:1.1rem;font-weight:700">'+dat.name+'</div><div style="font-size:.78rem;color:var(--muted);margin-top:2px">Codigo: <span class="fd" style="color:var(--accent);font-size:.9rem">'+usr+'</span></div>';
+    if(dat.phone){h+='<div style="font-size:.78rem;color:var(--muted);margin-top:2px"><i class="fas fa-phone" style="font-size:.65rem"></i> '+dat.phone+'</div>'}
+    h+='<div style="font-size:.68rem;color:var(--ok);margin-top:6px"><i class="fas fa-cloud"></i> Datos en la nube</div></div>';
+    h+='<div style="display:flex;gap:12px;padding:0 16px;margin-bottom:16px"><div class="statc" style="flex:1"><div class="statn" style="color:var(--ok)">'+pc+'%</div><div class="statl">Completado</div></div><div class="statc" style="flex:1"><div class="statn" style="color:var(--warn)">'+rt+'</div><div class="statl">Rep. disponibles</div></div></div>';
+    h+='<div style="padding:0 16px"><div style="font-size:.8rem;font-weight:600;color:var(--muted);margin-bottom:8px">Mis repetidos ('+rps.length+')</div></div>';
+    if(!rps.length){h+='<div class="vacio" style="padding:24px"><i class="fas fa-clone"></i><div>Sin repetidos</div></div>'}
+    else{
+        h+='<div class="grd">';
+        for(var ri=0;ri<Math.min(rps.length,40);ri++){var rs=rps[ri];h+='<div class="crt rep" data-n="'+rs.num+'"><div class="fra '+(rs.shm||'')+'" style="background:'+rs.cl+'"></div><div class="cuerpo"><div class="num">'+rs.num+'</div><div class="nomb">'+rs.n+'</div></div><div class="badge rb">'+st[rs.num]+'</div></div>'}
+        if(rps.length>40){h+='<div style="grid-column:1/-1;text-align:center;padding:12px;color:var(--muted);font-size:.75rem">... y '+(rps.length-40)+' mas</div>'}
+        h+='</div>';
+    }
+    h+='<div style="padding:20px 16px"><div style="height:1px;background:var(--border);margin-bottom:16px"></div><button class="btns" style="width:100%;display:block" id="btnComp"><i class="fas fa-share-alt"></i> Compartir</button></div>';
+    c.innerHTML=h;
+    var sc2=c.querySelectorAll('.crt[data-n]');
+    for(var s=0;s<sc2.length;s++){sc2[s].onclick=(function(n){return function(){abrirSt(n)}})(parseInt(sc2[s].getAttribute('data-n')))}
+    E('btnComp').onclick=function(){
+        var txt='Panini Swap - '+dat.name+' ('+usr+')\nRepetidos: '+rps.length+'\n\n';
+        for(var i=0;i<Math.min(rps.length,30);i++){txt+='#'+rps[i].num+' '+rps[i].n+' ('+rps[i].tn+') x'+st[rps[i].num]+'\n'}
+        if(rps.length>30){txt+='... y '+(rps.length-30)+' mas'}
+        if(navigator.share){navigator.share({title:'Panini Swap',text:txt}).catch(function(){})}
+        else{try{navigator.clipboard.writeText(txt);toast('Copiado','suc')}catch(e){}}
+    };
+}
 
-// === DIBUJAR ADMIN ===
+/* === DIBUJAR ADMIN === */
 function dibAdmin(c){
     c.innerHTML='<div style="padding:16px 16px 8px"><div class="fd" style="font-size:1.4rem;color:var(--accent);margin-bottom:4px">Panel Admin</div><div style="font-size:.8rem;color:var(--muted)">Vercel KV</div></div><div style="padding:0 16px;margin-bottom:12px"><button class="btnp" id="bnGen"><i class="fas fa-plus"></i> Generar codigo</button></div><div style="padding:0 16px;margin-bottom:12px"><button class="btns" style="width:100%;display:block;text-align:center" id="bnDemo"><i class="fas fa-database"></i> Cargar datos demo</button></div><div style="padding:0 16px;margin-bottom:12px"><button class="btns" style="width:100%;display:block;text-align:center;border-color:var(--err);color:var(--err)" id="bnReset"><i class="fas fa-trash"></i> Reiniciar base de datos</button></div><div style="padding:0 16px 8px;font-size:.85rem;font-weight:600;color:var(--muted)">Usuarios</div><div id="al"><div style="text-align:center;padding:16px;color:var(--muted)"><div class="carg" style="margin:0 auto 8px"></div></div></div>';
 
-    // Boton generar codigo
     E('bnGen').onclick=function(){
         E('modalCuerpo').innerHTML='<div style="font-size:1rem;font-weight:700;margin-bottom:12px">Nuevo codigo</div><input type="text" class="inp2" id="nwN" placeholder="Nombre" style="margin-bottom:8px"><input type="tel" class="inp2" id="nwT" placeholder="Telefono" style="margin-bottom:12px"><div id="nwR" style="display:none;margin-bottom:12px;padding:16px;background:var(--bg2);border-radius:10px;text-align:center"><div style="font-size:.72rem;color:var(--muted);margin-bottom:6px">Codigo:</div><div id="nwC" class="fd" style="font-size:2rem;color:var(--accent)"></div></div><div style="display:flex;gap:12px"><button class="btns" style="flex:1" id="nwX">Cancelar</button><button class="btnp" style="flex:1" id="nwG">Generar</button></div>';
         abrirModal();
@@ -358,60 +645,59 @@ function dibAdmin(c){
         E('nwG').onclick=function(){
             var nm=E('nwN').value.trim();
             if(!nm){toast('Ingresa nombre','err');return}
-            var ph=E('nwT').value.trim(),base=nm.substring(0,5).toUpperCase().replace(/[^A-Z0-9]/g,'')+String(Math.floor(Math.random()*90)+10);
+            var ph=E('nwT').value.trim();
+            var base=nm.substring(0,5).toUpperCase().replace(/[^A-Z0-9]/g,'')+String(Math.floor(Math.random()*90)+10);
             (function intentar(cod){
                 apiPost('adminCreate',{id:cod,name:nm,phone:ph}).then(function(r){
                     if(r.error){intentar(cod+Math.floor(Math.random()*99));return}
-                    E('nwR').style.display='block';
-                    E('nwC').textContent=r.code;
-                    E('nwN').disabled=true;
-                    E('nwT').disabled=true;
-                    toast('Codigo generado','suc');
-                    dibAdmin(E('cnt'));
-                }).catch(function(){toast('Error','err')})
-            })(base)
+                    E('nwR').style.display='block';E('nwC').textContent=r.code;E('nwN').disabled=true;E('nwT').disabled=true;toast('Codigo generado','suc');dibAdmin(E('cnt'));
+                }).catch(function(){toast('Error al crear','err')});
+            })(base);
         };
-    }; // cierra bnGen.onclick
-
-    // Boton demo
-    E('bnDemo').onclick=function(){
-        apiGet({a:'initDemo'}).then(function(){toast('Demo cargado','suc');dibAdmin(E('cnt'))}).catch(function(){toast('Error','err')})
     };
 
-    // Boton reset
+    E('bnDemo').onclick=function(){
+        apiGet({a:'initDemo'}).then(function(){toast('Demo cargado','suc');dibAdmin(E('cnt'))}).catch(function(){toast('Error al cargar demo','err')});
+    };
+
     E('bnReset').onclick=function(){
         E('modalCuerpo').innerHTML='<div style="text-align:center;margin-bottom:16px"><i class="fas fa-exclamation-triangle" style="font-size:2rem;color:var(--err);display:block;margin-bottom:10px"></i><div style="font-weight:700">Reiniciar todo?</div></div><div style="display:flex;gap:12px"><button class="btns" style="flex:1" id="dbX">Cancelar</button><button class="btnsm bdel" style="padding:12px;font-size:.85rem;border-radius:10px;flex:1" id="dbO">Reiniciar</button></div>';
         abrirModal();
         E('dbX').onclick=cerrarModal;
         E('dbO').onclick=function(){
-            apiGet({a:'adminReset'}).then(function(){cerrarModal();toast('Reiniciada','inf');dibAdmin(E('cnt'))}).catch(function(){toast('Error','err')})
+            apiGet({a:'adminReset'}).then(function(){cerrarModal();toast('Reiniciada','inf');dibAdmin(E('cnt'))}).catch(function(){toast('Error','err')});
         };
-    }; // cierra bnReset.onclick
+    };
 
-    // Cargar lista de usuarios (ejecuta al cargar la vista, NO dentro de ningun onclick)
     apiGet({a:'users'}).then(function(users){
         var al=E('al');
         if(!users.length){al.innerHTML='<div class="vacio" style="padding:24px"><i class="fas fa-user-plus"></i><div>Sin usuarios. Genera codigos o carga demo.</div></div>';return}
         var h='';
         for(var u=0;u<users.length;u++){
             var u2=users[u],hc=0,us2=u2.stickers||{};
-            for(var s=0;s<ST.length;s++)if(us2[ST[s].num]>=1)hc++;
+            for(var s=0;s<ST.length;s++){if(us2[ST[s].num]>=1)hc++}
             var pct=Math.round(hc/TOTAL*100);
-            h+='<div class="adminr"><div class="avat" style="width:34px;height:34px;font-size:.75rem;background:hsl('+uidC(u2.id)+',60%,35%)">'+u2.name[0]+'</div><div style="flex:1;min-width:0"><div style="font-size:.8rem;font-weight:600">'+u2.name+'</div><div class="fd" style="font-size:.65rem;color:var(--accent);letter-spacing:.08em">'+u2.id+'</div></div><div style="text-align:right;flex-shrink:0"><div style="font-size:.72rem;font-weight:600">'+hc+'/'+TOTAL+'</div><div class="adminp" style="margin:3px auto 0"><div class="adminpf" style="width:'+pct+'%"></div></div></div><button style="background:none;border:none;color:var(--err);cursor:pointer;font-size:.8rem;padding:4px 6px" data-d="'+u2.id+'"><i class="fas fa-trash"></i></button></div>'
+            h+='<div class="adminr"><div class="avat" style="width:34px;height:34px;font-size:.75rem;background:hsl('+uidC(u2.id)+',60%,35%)">'+u2.name[0]+'</div><div style="flex:1;min-width:0"><div style="font-size:.8rem;font-weight:600">'+u2.name+'</div><div class="fd" style="font-size:.65rem;color:var(--accent);letter-spacing:.08em">'+u2.id+'</div></div><div style="text-align:right;flex-shrink:0"><div style="font-size:.72rem;font-weight:600">'+hc+'/'+TOTAL+'</div><div class="adminp" style="margin:3px auto 0"><div class="adminpf" style="width:'+pct+'%"></div></div></div><button style="background:none;border:none;color:var(--err);cursor:pointer;font-size:.8rem;padding:4px 6px" data-d="'+u2.id+'"><i class="fas fa-trash"></i></button></div>';
         }
         al.innerHTML=h;
         var dbs=al.querySelectorAll('[data-d]');
         for(var d=0;d<dbs.length;d++){
-            dbs[d].onclick=(function(id){return function(){
-                apiGet({a:'adminDelete',id:id}).then(function(){toast('Eliminado','inf');dibAdmin(E('cnt'))}).catch(function(){toast('Error','err')})
-            }})(dbs[d].getAttribute('data-d'))
+            (function(id){dbs[d].onclick=function(){apiGet({a:'adminDelete',id:id}).then(function(){toast('Eliminado','inf');dibAdmin(E('cnt'))}).catch(function(){toast('Error','err')})}})(dbs[d].getAttribute('data-d'));
         }
-    }).catch(function(){E('al').innerHTML='<div class="vacio"><i class="fas fa-wifi"></i><div>Error</div></div>'})
+    }).catch(function(){E('al').innerHTML='<div class="vacio"><i class="fas fa-wifi"></i><div>Error de conexion al servidor</div></div>'});
 }
 
-// === PWA INSTALL ===
+/* === PWA INSTALL === */
 var iP=null;
-window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();iP=e;var b=document.createElement('div');b.id='iBan';b.style.cssText='position:fixed;bottom:70px;left:16px;right:16px;z-index:60;padding:12px 16px;background:var(--card);border:1px solid var(--accent);border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;transform:translateY(20px);opacity:0;transition:all .4s';b.innerHTML='<div><div style="font-size:.85rem;font-weight:600"><i class="fas fa-download" style="color:var(--accent);margin-right:6px"></i>Instalar App</div><div style="font-size:.7rem;color:var(--muted)">Pantalla de inicio</div></div><button class="btnsm bacc" style="padding:8px 16px;border-radius:8px;font-size:.8rem" id="iBtn">Instalar</button>';document.body.appendChild(b);setTimeout(function(){b.style.transform='translateY(0)';b.style.opacity='1'},500);E('iBtn').onclick=function(){if(!iP)return;iP.prompt();iP.userChoice.then(function(){iP=null;b.remove()})}});
+window.addEventListener('beforeinstallprompt',function(e){
+    e.preventDefault();iP=e;
+    var b=document.createElement('div');b.id='iBan';
+    b.style.cssText='position:fixed;bottom:70px;left:16px;right:16px;z-index:60;padding:12px 16px;background:var(--card);border:1px solid var(--accent);border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;transform:translateY(20px);opacity:0;transition:all .4s';
+    b.innerHTML='<div><div style="font-size:.85rem;font-weight:600"><i class="fas fa-download" style="color:var(--accent);margin-right:6px"></i>Instalar App</div><div style="font-size:.7rem;color:var(--muted)">Pantalla de inicio</div></div><button class="btnsm bacc" style="padding:8px 16px;border-radius:8px;font-size:.8rem" id="iBtn">Instalar</button>';
+    document.body.appendChild(b);
+    setTimeout(function(){b.style.transform='translateY(0)';b.style.opacity='1'},500);
+    E('iBtn').onclick=function(){if(!iP)return;iP.prompt();iP.userChoice.then(function(){iP=null;b.remove()})};
+});
 window.addEventListener('appinstalled',function(){var b=E('iBan');if(b)b.remove();toast('App instalada','suc')});
 </script>
 </body>
