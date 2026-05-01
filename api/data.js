@@ -1,9 +1,54 @@
-import { kv } from '@vercel/kv';
+var UPSTASH_URL = process.env.KV_REST_API_URL;
+var UPSTASH_TOKEN = process.env.KV_REST_API_TOKEN;
 
-// === HELPERS ===
-function jsonResponse(data, status = 200) {
+function checkConfig() {
+  if (!UPSTASH_URL || !UPSTASH_TOKEN) {
+    throw new Error('Faltan KV_REST_API_URL o KV_REST_API_TOKEN en Environment Variables');
+  }
+}
+
+async function kv(cmd) {
+  var args = Array.prototype.slice.call(arguments, 1);
+  var res = await fetch(UPSTASH_URL + '/' + cmd, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + UPSTASH_TOKEN,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(args)
+  });
+  var data = await res.json();
+  if (data.error) throw new Error('Redis error: ' + data.error);
+  return data.result;
+}
+
+async function kvGet(key) {
+  var val = await kv('get', key);
+  return val ? JSON.parse(val) : null;
+}
+
+async function kvSet(key, value) {
+  await kv('set', key, JSON.stringify(value));
+}
+
+async function kvDel(key) {
+  await kv('del', key);
+}
+
+async function kvScan(pattern) {
+  var cursor = '0';
+  var allKeys = [];
+  do {
+    var res = await kv('scan', cursor, 'MATCH', pattern, 'COUNT', '100');
+    cursor = res[0];
+    if (res[1]) allKeys = allKeys.concat(res[1]);
+  } while (cursor !== '0');
+  return allKeys;
+}
+
+function jsonResponse(data, status) {
   return new Response(JSON.stringify(data), {
-    status,
+    status: status || 200,
     headers: {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
@@ -13,281 +58,201 @@ function jsonResponse(data, status = 200) {
   });
 }
 
-function errorResponse(msg, status = 400) {
-  return jsonResponse({ error: msg }, status);
+function error(msg, status) {
+  return jsonResponse({ error: msg }, status || 500);
 }
 
-// === LEER BODY ===
 async function readBody(req) {
-  try {
-    return await req.json();
-  } catch {
-    return {};
-  }
+  try { return await req.json(); }
+  catch (e) { return {}; }
 }
 
-// === USER KEY ===
 function uk(id) { return 'user:' + id; }
 
-// === HANDLERS ===
-
-// Listar todos los usuarios
 async function handleUsers() {
-  try {
-    const keys = await kv.keys('user:*');
-    if (!keys || !keys.length) return jsonResponse([]);
-    const users = await Promise.all(
-      keys.map(k => kv.get(k))
-    );
-    // Filtrar nulos y quitar stickers del listado (pesado)
-    return jsonResponse(
-      users.filter(Boolean).map(u => ({
-        id: u.id,
-        name: u.name,
-        phone: u.phone || ''
-      }))
-    );
-  } catch (e) {
-    console.error('handleUsers:', e);
-    return errorResponse('Error al leer usuarios');
+  checkConfig();
+  var keys = await kvScan('user:*');
+  if (!keys.length) return jsonResponse([]);
+  var users = [];
+  for (var i = 0; i < keys.length; i++) {
+    var u = await kvGet(keys[i]);
+    if (u) users.push({ id: u.id, name: u.name, phone: u.phone || '' });
   }
+  return jsonResponse(users);
 }
 
-// Login
 async function handleLogin(params) {
-  const id = (params.id || '').trim().toUpperCase();
-  if (!id) return errorResponse('Codigo vacio');
-  if (id === '__ADMIN__') return errorResponse('Codigo reservado');
-
-  let user = await kv.get(uk(id));
-  if (!user) return errorResponse('Codigo no encontrado. Pide uno al administrador.');
-
-  return jsonResponse({
-    id: user.id,
-    name: user.name,
-    phone: user.phone || '',
-    stickers: user.stickers || {}
-  });
+  checkConfig();
+  var id = (params.id || '').trim().toUpperCase();
+  if (!id) return error('Codigo vacio');
+  if (id === '__ADMIN__') return error('Codigo reservado');
+  var user = await kvGet(uk(id));
+  if (!user) return error('Codigo no encontrado. Pide uno al administrador.', 404);
+  return jsonResponse({ id: user.id, name: user.name, phone: user.phone || '', stickers: user.stickers || {} });
 }
 
-// Guardar stickers
 async function handleSave(body) {
-  const id = (body.id || '').trim().toUpperCase();
-  if (!id) return errorResponse('Sin usuario');
-  if (!body.stickers) return errorResponse('Sin datos');
-
-  const user = await kv.get(uk(id));
-  if (!user) return errorResponse('Usuario no encontrado');
-
+  checkConfig();
+  var id = (body.id || '').trim().toUpperCase();
+  if (!id) return error('Sin usuario');
+  if (!body.stickers) return error('Sin datos');
+  var user = await kvGet(uk(id));
+  if (!user) return error('Usuario no encontrado', 404);
   user.stickers = body.stickers;
-  await kv.set(uk(id), user);
+  await kvSet(uk(id), user);
   return jsonResponse({ ok: true });
 }
 
-// Buscar cromos que otros tienen y a mi me faltan
 async function handleSearch(params) {
-  const myId = (params.id || '').trim().toUpperCase();
-  const mode = params.mode || 'missing';
-  if (!myId) return errorResponse('Sin usuario');
-
-  const me = await kv.get(uk(myId));
-  if (!me) return errorResponse('Usuario no encontrado');
-
-  const myStickers = me.stickers || {};
-  const keys = await kv.keys('user:*');
-  if (!keys || !keys.length) return jsonResponse({ results: [] });
-
-  const others = await Promise.all(keys.map(k => kv.get(k)));
-  const results = [];
-
-  for (const other of others) {
+  checkConfig();
+  var myId = (params.id || '').trim().toUpperCase();
+  var mode = params.mode || 'missing';
+  if (!myId) return error('Sin usuario');
+  var me = await kvGet(uk(myId));
+  if (!me) return error('Usuario no encontrado', 404);
+  var myStickers = me.stickers || {};
+  var keys = await kvScan('user:*');
+  if (!keys.length) return jsonResponse({ results: [] });
+  var results = [];
+  for (var i = 0; i < keys.length; i++) {
+    var other = await kvGet(keys[i]);
     if (!other || other.id === myId) continue;
-    const theirStickers = other.stickers || {};
-
-    for (const numStr in theirStickers) {
-      const num = parseInt(numStr);
-      const theirQty = theirStickers[num];
+    var theirStickers = other.stickers || {};
+    var nums = Object.keys(theirStickers);
+    for (var j = 0; j < nums.length; j++) {
+      var num = parseInt(nums[j]);
+      var theirQty = theirStickers[num];
       if (theirQty < 1) continue;
-
-      const myQty = myStickers[num] || 0;
-
+      var myQty = myStickers[num] || 0;
       if (mode === 'missing' && myQty >= 1) continue;
-      // mode 'all' = mostrar todos los que otros tienen como repetidos
-
-      results.push({
-        userId: other.id,
-        userName: other.name,
-        stickerNum: num,
-        qty: theirQty
-      });
+      results.push({ userId: other.id, userName: other.name, stickerNum: num, qty: theirQty });
     }
   }
-
-  // Ordenar: primero los que mas me faltan (qty=0), luego por usuario
-  results.sort((a, b) => {
-    const aMissing = (myStickers[a.stickerNum] || 0) === 0 ? 0 : 1;
-    const bMissing = (myStickers[b.stickerNum] || 0) === 0 ? 0 : 1;
-    if (aMissing !== bMissing) return aMissing - bMissing;
+  results.sort(function (a, b) {
+    var am = (myStickers[a.stickerNum] || 0) === 0 ? 0 : 1;
+    var bm = (myStickers[b.stickerNum] || 0) === 0 ? 0 : 1;
+    if (am !== bm) return am - bm;
     return a.userId.localeCompare(b.userId);
   });
-
-  return jsonResponse({ results });
+  return jsonResponse({ results: results });
 }
 
-// Obtener conversaciones de un usuario
 async function handleConvs(params) {
-  const id = (params.id || '').trim().toUpperCase();
-  if (!id) return errorResponse('Sin usuario');
-
-  const convKeys = await kv.get('convs:' + id);
+  checkConfig();
+  var id = (params.id || '').trim().toUpperCase();
+  if (!id) return error('Sin usuario');
+  var convKeys = await kvGet('convs:' + id);
   if (!convKeys || !convKeys.length) return jsonResponse([]);
-
-  const convs = await Promise.all(convKeys.map(k => kv.get('conv:' + k)));
-  return jsonResponse(convs.filter(Boolean));
+  var convs = [];
+  for (var i = 0; i < convKeys.length; i++) {
+    var c = await kvGet('conv:' + convKeys[i]);
+    if (c) convs.push(c);
+  }
+  return jsonResponse(convs);
 }
 
-// Obtener una conversacion especifica
 async function handleConv(params) {
-  const key = params.key;
-  if (!key) return errorResponse('Sin clave de conversacion');
-
-  const conv = await kv.get('conv:' + key);
-  if (!conv) return errorResponse('Conversacion no encontrada');
-
+  checkConfig();
+  var key = params.key;
+  if (!key) return error('Sin clave');
+  var conv = await kvGet('conv:' + key);
+  if (!conv) return error('Conversacion no encontrada', 404);
   return jsonResponse(conv);
 }
 
-// Marcar mensajes como leidos
 async function handleRead(params) {
-  const id = (params.id || '').trim().toUpperCase();
-  const key = params.key;
-  if (!id || !key) return errorResponse('Datos incompletos');
-
-  const conv = await kv.get('conv:' + key);
-  if (!conv) return errorResponse('Conversacion no encontrada');
-
-  let changed = false;
-  for (const msg of conv.messages) {
-    if (msg.from !== id && !msg.read) {
-      msg.read = true;
+  checkConfig();
+  var id = (params.id || '').trim().toUpperCase();
+  var key = params.key;
+  if (!id || !key) return error('Datos incompletos');
+  var conv = await kvGet('conv:' + key);
+  if (!conv) return error('Conversacion no encontrada', 404);
+  var changed = false;
+  for (var i = 0; i < conv.messages.length; i++) {
+    if (conv.messages[i].from !== id && !conv.messages[i].read) {
+      conv.messages[i].read = true;
       changed = true;
     }
   }
-
-  if (changed) await kv.set('conv:' + key, conv);
+  if (changed) await kvSet('conv:' + key, conv);
   return jsonResponse({ ok: true });
 }
 
-// Enviar mensaje
 async function handleMsg(body) {
-  const key = body.key;
-  const from = (body.from || '').trim().toUpperCase();
-  const text = (body.text || '').trim();
-  if (!key || !from || !text) return errorResponse('Datos incompletos');
-
-  let conv = await kv.get('conv:' + key);
-
+  checkConfig();
+  var key = body.key;
+  var from = (body.from || '').trim().toUpperCase();
+  var text = (body.text || '').trim();
+  if (!key || !from || !text) return error('Datos incompletos');
+  var conv = await kvGet('conv:' + key);
   if (!conv) {
-    // Crear conversacion nueva
-    const parts = key.split('-');
-    conv = {
-      key: key,
-      users: parts,
-      messages: []
-    };
-
-    // Registrar en ambos usuarios
-    for (const uid of parts) {
-      const list = (await kv.get('convs:' + uid)) || [];
-      if (!list.includes(key)) {
+    var parts = key.split('-');
+    conv = { key: key, users: parts, messages: [] };
+    for (var i = 0; i < parts.length; i++) {
+      var uid = parts[i];
+      var list = (await kvGet('convs:' + uid)) || [];
+      if (list.indexOf(key) === -1) {
         list.push(key);
-        await kv.set('convs:' + uid, list);
+        await kvSet('convs:' + uid, list);
       }
     }
   }
-
-  conv.messages.push({
-    from: from,
-    text: text.substring(0, 500),
-    time: Date.now(),
-    read: false
-  });
-
-  await kv.set('conv:' + key, conv);
+  conv.messages.push({ from: from, text: text.substring(0, 500), time: Date.now(), read: false });
+  await kvSet('conv:' + key, conv);
   return jsonResponse({ ok: true });
 }
 
-// Admin: crear usuario
 async function handleAdminCreate(body) {
-  const id = (body.id || '').trim().toUpperCase();
-  const name = (body.name || '').trim();
-  if (!id || !name) return errorResponse('Faltan datos');
-  if (id === '__ADMIN__') return errorResponse('Codigo reservado');
-
-  const existing = await kv.get(uk(id));
-  if (existing) return errorResponse('Codigo ya existe');
-
-  const user = {
-    id: id,
-    name: name,
-    phone: (body.phone || '').trim(),
-    stickers: {},
-    created: Date.now()
-  };
-
-  await kv.set(uk(id), user);
+  checkConfig();
+  var id = (body.id || '').trim().toUpperCase();
+  var name = (body.name || '').trim();
+  if (!id || !name) return error('Faltan datos');
+  if (id === '__ADMIN__') return error('Codigo reservado');
+  var existing = await kvGet(uk(id));
+  if (existing) return error('Codigo ya existe', 409);
+  var user = { id: id, name: name, phone: (body.phone || '').trim(), stickers: {}, created: Date.now() };
+  await kvSet(uk(id), user);
   return jsonResponse({ ok: true, code: id });
 }
 
-// Admin: eliminar usuario
 async function handleAdminDelete(params) {
-  const id = (params.id || '').trim().toUpperCase();
-  if (!id) return errorResponse('Sin usuario');
-
-  // Eliminar de KV
-  await kv.del(uk(id));
-  await kv.del('convs:' + id);
-
-  // Eliminar de conversaciones donde participa
+  checkConfig();
+  var id = (params.id || '').trim().toUpperCase();
+  if (!id) return error('Sin usuario');
+  await kvDel(uk(id));
+  await kvDel('convs:' + id);
   try {
-    const allConvKeys = await kv.keys('conv:*');
-    for (const ck of allConvKeys) {
-      const conv = await kv.get(ck);
-      if (conv && conv.users && conv.users.includes(id)) {
-        // Eliminar la conv de la lista del otro usuario
-        const otherId = conv.users.find(u => u !== id);
-        if (otherId) {
-          const otherConvs = (await kv.get('convs:' + otherId)) || [];
-          const filtered = otherConvs.filter(k => k !== conv.key);
-          await kv.set('convs:' + otherId, filtered);
+    var allKeys = await kvScan('conv:*');
+    for (var i = 0; i < allKeys.length; i++) {
+      var conv = await kvGet(allKeys[i]);
+      if (conv && conv.users && conv.users.indexOf(id) !== -1) {
+        var otherId = null;
+        for (var j = 0; j < conv.users.length; j++) {
+          if (conv.users[j] !== id) otherId = conv.users[j];
         }
-        await kv.del(ck);
+        if (otherId) {
+          var otherConvs = (await kvGet('convs:' + otherId)) || [];
+          await kvSet('convs:' + otherId, otherConvs.filter(function (k) { return k !== conv.key; }));
+        }
+        await kvDel(allKeys[i]);
       }
     }
-  } catch (e) {
-    console.error('Error limpiando convs:', e);
-  }
-
+  } catch (e) { console.error('Error limpiando convs:', e); }
   return jsonResponse({ ok: true });
 }
 
-// Admin: reiniciar toda la base de datos
 async function handleAdminReset() {
-  try {
-    const allKeys = await kv.keys('*');
-    if (allKeys && allKeys.length) {
-      await Promise.all(allKeys.map(k => kv.del(k)));
-    }
-    return jsonResponse({ ok: true });
-  } catch (e) {
-    console.error('handleAdminReset:', e);
-    return errorResponse('Error al reiniciar');
+  checkConfig();
+  var allKeys = await kvScan('*');
+  for (var i = 0; i < allKeys.length; i++) {
+    await kvDel(allKeys[i]);
   }
+  return jsonResponse({ ok: true });
 }
 
-// Admin: cargar datos demo
 async function handleInitDemo() {
-  const demoUsers = [
+  checkConfig();
+  var demoUsers = [
     { id: 'CARLOS01', name: 'Carlos Perez', phone: '555-0101' },
     { id: 'MARIA02', name: 'Maria Garcia', phone: '555-0102' },
     { id: 'JUAN03', name: 'Juan Rodriguez', phone: '555-0103' },
@@ -297,85 +262,66 @@ async function handleInitDemo() {
     { id: 'DIEGO07', name: 'Diego Torres', phone: '555-0107' },
     { id: 'SOFIA08', name: 'Sofia Herrera', phone: '555-0108' }
   ];
-
-  for (const du of demoUsers) {
-    const existing = await kv.get(uk(du.id));
+  var created = 0;
+  for (var i = 0; i < demoUsers.length; i++) {
+    var du = demoUsers[i];
+    var existing = await kvGet(uk(du.id));
     if (existing) continue;
-
-    // Generar stickers aleatorios: ~60-80% del album, algunos repetidos
-    const stickers = {};
-    const total = 980;
-    const haveCount = Math.floor(total * (0.6 + Math.random() * 0.2));
-
-    // Seleccionar cuales tiene
-    const have = new Set();
-    while (have.size < haveCount) {
-      have.add(Math.floor(Math.random() * total) + 1);
+    var stickers = {};
+    var total = 980;
+    var haveCount = Math.floor(total * (0.6 + Math.random() * 0.2));
+    var have = {};
+    while (Object.keys(have).length < haveCount) {
+      have[Math.floor(Math.random() * total) + 1] = true;
     }
-
-    for (const num of have) {
-      stickers[num] = 1;
-      // ~15% probabilidad de repetido extra
-      if (Math.random() < 0.15) {
-        stickers[num] = 2;
-      }
-      // ~5% probabilidad de tener 3
-      if (Math.random() < 0.05) {
-        stickers[num] = 3;
-      }
+    var nums = Object.keys(have);
+    for (var j = 0; j < nums.length; j++) {
+      var n = parseInt(nums[j]);
+      stickers[n] = 1;
+      if (Math.random() < 0.15) stickers[n] = 2;
+      if (Math.random() < 0.05) stickers[n] = 3;
     }
-
-    await kv.set(uk(du.id), {
-      id: du.id,
-      name: du.name,
-      phone: du.phone,
-      stickers: stickers,
-      created: Date.now()
-    });
+    await kvSet(uk(du.id), { id: du.id, name: du.name, phone: du.phone, stickers: stickers, created: Date.now() });
+    created++;
   }
-
-  return jsonResponse({ ok: true, count: demoUsers.length });
+  return jsonResponse({ ok: true, created: created });
 }
 
-// === HANDLER PRINCIPAL ===
-export default async function handler(req, res) {
-  // CORS preflight
-  if (req.method === 'OPTIONS') {
-    return jsonResponse({}, 204);
-  }
+export default async function handler(req) {
+  if (req.method === 'OPTIONS') return jsonResponse({}, 204);
 
-  const url = new URL(req.url, 'http://localhost');
-  const action = url.searchParams.get('a') || '';
+  var url = new URL(req.url, 'http://localhost');
+  var action = url.searchParams.get('a') || '';
 
-  // GET requests
-  if (req.method === 'GET') {
-    const params = Object.fromEntries(url.searchParams);
-
-    switch (action) {
-      case 'users': return handleUsers();
-      case 'login': return handleLogin(params);
-      case 'search': return handleSearch(params);
-      case 'convs': return handleConvs(params);
-      case 'conv': return handleConv(params);
-      case 'read': return handleRead(params);
-      case 'adminDelete': return handleAdminDelete(params);
-      case 'adminReset': return handleAdminReset();
-      case 'initDemo': return handleInitDemo();
-      default: return errorResponse('Accion GET no reconocida');
+  try {
+    if (req.method === 'GET') {
+      switch (action) {
+        case 'users': return handleUsers();
+        case 'login': return handleLogin(Object.fromEntries(url.searchParams));
+        case 'search': return handleSearch(Object.fromEntries(url.searchParams));
+        case 'convs': return handleConvs(Object.fromEntries(url.searchParams));
+        case 'conv': return handleConv(Object.fromEntries(url.searchParams));
+        case 'read': return handleRead(Object.fromEntries(url.searchParams));
+        case 'adminDelete': return handleAdminDelete(Object.fromEntries(url.searchParams));
+        case 'adminReset': return handleAdminReset();
+        case 'initDemo': return handleInitDemo();
+        default: return error('Accion no reconocida: ' + action);
+      }
     }
-  }
 
-  // POST requests
-  if (req.method === 'POST') {
-    const body = await readBody(req);
-
-    switch (action) {
-      case 'save': return handleSave(body);
-      case 'msg': return handleMsg(body);
-      case 'adminCreate': return handleAdminCreate(body);
-      default: return errorResponse('Accion POST no reconocida');
+    if (req.method === 'POST') {
+      var body = await readBody(req);
+      switch (action) {
+        case 'save': return handleSave(body);
+        case 'msg': return handleMsg(body);
+        case 'adminCreate': return handleAdminCreate(body);
+        default: return error('Accion no reconocida: ' + action);
+      }
     }
-  }
 
-  return errorResponse('Metodo no permitido', 405);
+    return error('Metodo no permitido', 405);
+  } catch (e) {
+    console.error('Handler error:', e);
+    return error('Error: ' + e.message);
+  }
 }
