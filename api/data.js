@@ -24,19 +24,31 @@ async function readBody(req) {
 
 function uk(id) { return 'user:' + id; }
 
+function checkConfig() {
+  if (!UPSTASH_URL) throw new Error('KV_REST_API_URL no existe. Ejecuta: npx vercel env add KV_REST_API_URL production preview');
+  if (!UPSTASH_TOKEN) throw new Error('KV_REST_API_TOKEN no existe. Ejecuta: npx vercel env add KV_REST_API_TOKEN production preview');
+}
+
 async function kv(cmd) {
   var args = Array.prototype.slice.call(arguments, 1);
-  var res = await fetch(UPSTASH_URL + '/' + cmd, {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer ' + UPSTASH_TOKEN,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(args)
-  });
-  var data = await res.json();
-  if (data.error) throw new Error('Redis error: ' + data.error);
-  return data.result;
+  var controller = new AbortController();
+  var timer = setTimeout(function() { controller.abort(); }, 8000);
+  try {
+    var res = await fetch(UPSTASH_URL + '/' + cmd, {
+      signal: controller.signal,
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + UPSTASH_TOKEN,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(args)
+    });
+    var data = await res.json();
+    if (data.error) throw new Error('Redis: ' + data.error);
+    return data.result;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function kvGet(key) {
@@ -64,24 +76,17 @@ async function kvScan(pattern) {
 }
 
 async function handlePing() {
-  var info = {
-    url: UPSTASH_URL ? UPSTASH_URL.substring(0, 30) + '...' : 'NO ENCONTRADA',
-    token: UPSTASH_TOKEN ? 'SI (' + UPSTASH_TOKEN.substring(0, 8) + '...)' : 'NO ENCONTRADO'
-  };
-  if (UPSTASH_URL && UPSTASH_TOKEN) {
-    try {
-      await kv('ping');
-      info.redis = 'CONECTADO';
-    } catch (e) {
-      info.redis = 'ERROR: ' + e.message;
-    }
-  } else {
-    info.redis = 'SIN CREDENCIALES';
+  checkConfig();
+  try {
+    await kv('ping');
+    return jsonResponse({ redis: 'CONECTADO', url: UPSTASH_URL.substring(0, 30) + '...' });
+  } catch (e) {
+    return jsonResponse({ redis: 'ERROR: ' + e.message, url: UPSTASH_URL.substring(0, 30) + '...' }, 500);
   }
-  return jsonResponse(info);
 }
 
 async function handleUsers() {
+  checkConfig();
   var keys = await kvScan('user:*');
   if (!keys.length) return jsonResponse([]);
   var users = [];
@@ -93,18 +98,19 @@ async function handleUsers() {
 }
 
 async function handleLogin(params) {
+  checkConfig();
   var id = (params.id || '').trim().toUpperCase();
   if (!id) return error('Codigo vacio');
   if (id === '__ADMIN__') return error('Codigo reservado');
   var user = await kvGet(uk(id));
-  if (!user) return error('Codigo no encontrado. Pide uno al administrador.', 404);
+  if (!user) return error('Codigo no encontrado.', 404);
   return jsonResponse({ id: user.id, name: user.name, phone: user.phone || '', stickers: user.stickers || {} });
 }
 
 async function handleSave(body) {
+  checkConfig();
   var id = (body.id || '').trim().toUpperCase();
-  if (!id) return error('Sin usuario');
-  if (!body.stickers) return error('Sin datos');
+  if (!id || !body.stickers) return error('Datos incompletos');
   var user = await kvGet(uk(id));
   if (!user) return error('Usuario no encontrado', 404);
   user.stickers = body.stickers;
@@ -113,6 +119,7 @@ async function handleSave(body) {
 }
 
 async function handleSearch(params) {
+  checkConfig();
   var myId = (params.id || '').trim().toUpperCase();
   var mode = params.mode || 'missing';
   if (!myId) return error('Sin usuario');
@@ -146,6 +153,7 @@ async function handleSearch(params) {
 }
 
 async function handleConvs(params) {
+  checkConfig();
   var id = (params.id || '').trim().toUpperCase();
   if (!id) return error('Sin usuario');
   var convKeys = await kvGet('convs:' + id);
@@ -159,19 +167,17 @@ async function handleConvs(params) {
 }
 
 async function handleConv(params) {
-  var key = params.key;
-  if (!key) return error('Sin clave');
-  var conv = await kvGet('conv:' + key);
-  if (!conv) return error('Conversacion no encontrada', 404);
+  checkConfig();
+  var conv = await kvGet('conv:' + params.key);
+  if (!conv) return error('No encontrada', 404);
   return jsonResponse(conv);
 }
 
 async function handleRead(params) {
-  var id = (params.id || '').trim().toUpperCase();
-  var key = params.key;
-  if (!id || !key) return error('Datos incompletos');
-  var conv = await kvGet('conv:' + key);
-  if (!conv) return error('Conversacion no encontrada', 404);
+  checkConfig();
+  var conv = await kvGet('conv:' + params.key);
+  if (!conv) return error('No encontrada', 404);
+  var id = params.id;
   var changed = false;
   for (var i = 0; i < conv.messages.length; i++) {
     if (conv.messages[i].from !== id && !conv.messages[i].read) {
@@ -179,46 +185,40 @@ async function handleRead(params) {
       changed = true;
     }
   }
-  if (changed) await kvSet('conv:' + key, conv);
+  if (changed) await kvSet('conv:' + params.key, conv);
   return jsonResponse({ ok: true });
 }
 
 async function handleMsg(body) {
-  var key = body.key;
-  var from = (body.from || '').trim().toUpperCase();
-  var text = (body.text || '').trim();
-  if (!key || !from || !text) return error('Datos incompletos');
-  var conv = await kvGet('conv:' + key);
+  checkConfig();
+  if (!body.key || !body.from || !body.text) return error('Datos incompletos');
+  var conv = await kvGet('conv:' + body.key);
   if (!conv) {
-    var parts = key.split('-');
-    conv = { key: key, users: parts, messages: [] };
+    var parts = body.key.split('-');
+    conv = { key: body.key, users: parts, messages: [] };
     for (var i = 0; i < parts.length; i++) {
-      var uid = parts[i];
-      var list = (await kvGet('convs:' + uid)) || [];
-      if (list.indexOf(key) === -1) {
-        list.push(key);
-        await kvSet('convs:' + uid, list);
-      }
+      var list = (await kvGet('convs:' + parts[i])) || [];
+      if (list.indexOf(body.key) === -1) { list.push(body.key); await kvSet('convs:' + parts[i], list); }
     }
   }
-  conv.messages.push({ from: from, text: text.substring(0, 500), time: Date.now(), read: false });
-  await kvSet('conv:' + key, conv);
+  conv.messages.push({ from: body.from, text: body.text.substring(0, 500), time: Date.now(), read: false });
+  await kvSet('conv:' + body.key, conv);
   return jsonResponse({ ok: true });
 }
 
 async function handleAdminCreate(body) {
+  checkConfig();
   var id = (body.id || '').trim().toUpperCase();
   var name = (body.name || '').trim();
   if (!id || !name) return error('Faltan datos');
-  if (id === '__ADMIN__') return error('Codigo reservado');
-  var existing = await kvGet(uk(id));
-  if (existing) return error('Codigo ya existe', 409);
-  var user = { id: id, name: name, phone: (body.phone || '').trim(), stickers: {}, created: Date.now() };
-  await kvSet(uk(id), user);
+  if (id === '__ADMIN__') return error('Reservado');
+  if (await kvGet(uk(id))) return error('Ya existe', 409);
+  await kvSet(uk(id), { id: id, name: name, phone: (body.phone || '').trim(), stickers: {}, created: Date.now() });
   return jsonResponse({ ok: true, code: id });
 }
 
 async function handleAdminDelete(params) {
+  checkConfig();
   var id = (params.id || '').trim().toUpperCase();
   if (!id) return error('Sin usuario');
   await kvDel(uk(id));
@@ -229,30 +229,28 @@ async function handleAdminDelete(params) {
       var conv = await kvGet(allKeys[i]);
       if (conv && conv.users && conv.users.indexOf(id) !== -1) {
         var otherId = null;
-        for (var j = 0; j < conv.users.length; j++) {
-          if (conv.users[j] !== id) otherId = conv.users[j];
-        }
+        for (var j = 0; j < conv.users.length; j++) { if (conv.users[j] !== id) otherId = conv.users[j]; }
         if (otherId) {
-          var otherConvs = (await kvGet('convs:' + otherId)) || [];
-          await kvSet('convs:' + otherId, otherConvs.filter(function (k) { return k !== conv.key; }));
+          var oc = (await kvGet('convs:' + otherId)) || [];
+          await kvSet('convs:' + otherId, oc.filter(function (k) { return k !== conv.key; }));
         }
         await kvDel(allKeys[i]);
       }
     }
-  } catch (e) { console.error('Error limpiando convs:', e); }
+  } catch (e) {}
   return jsonResponse({ ok: true });
 }
 
 async function handleAdminReset() {
+  checkConfig();
   var allKeys = await kvScan('*');
-  for (var i = 0; i < allKeys.length; i++) {
-    await kvDel(allKeys[i]);
-  }
+  for (var i = 0; i < allKeys.length; i++) { await kvDel(allKeys[i]); }
   return jsonResponse({ ok: true });
 }
 
 async function handleInitDemo() {
-  var demoUsers = [
+  checkConfig();
+  var demo = [
     { id: 'CARLOS01', name: 'Carlos Perez', phone: '555-0101' },
     { id: 'MARIA02', name: 'Maria Garcia', phone: '555-0102' },
     { id: 'JUAN03', name: 'Juan Rodriguez', phone: '555-0103' },
@@ -263,17 +261,13 @@ async function handleInitDemo() {
     { id: 'SOFIA08', name: 'Sofia Herrera', phone: '555-0108' }
   ];
   var created = 0;
-  for (var i = 0; i < demoUsers.length; i++) {
-    var du = demoUsers[i];
-    var existing = await kvGet(uk(du.id));
-    if (existing) continue;
+  for (var i = 0; i < demo.length; i++) {
+    var d = demo[i];
+    if (await kvGet(uk(d.id))) continue;
     var stickers = {};
-    var total = 980;
-    var haveCount = Math.floor(total * (0.6 + Math.random() * 0.2));
     var have = {};
-    while (Object.keys(have).length < haveCount) {
-      have[Math.floor(Math.random() * total) + 1] = true;
-    }
+    var target = Math.floor(980 * (0.6 + Math.random() * 0.2));
+    while (Object.keys(have).length < target) { have[Math.floor(Math.random() * 980) + 1] = true; }
     var nums = Object.keys(have);
     for (var j = 0; j < nums.length; j++) {
       var n = parseInt(nums[j]);
@@ -281,7 +275,7 @@ async function handleInitDemo() {
       if (Math.random() < 0.15) stickers[n] = 2;
       if (Math.random() < 0.05) stickers[n] = 3;
     }
-    await kvSet(uk(du.id), { id: du.id, name: du.name, phone: du.phone, stickers: stickers, created: Date.now() });
+    await kvSet(uk(d.id), { id: d.id, name: d.name, phone: d.phone, stickers: stickers, created: Date.now() });
     created++;
   }
   return jsonResponse({ ok: true, created: created });
@@ -289,10 +283,8 @@ async function handleInitDemo() {
 
 export default async function handler(req) {
   if (req.method === 'OPTIONS') return jsonResponse({}, 204);
-
   var url = new URL(req.url, 'http://localhost');
   var action = url.searchParams.get('a') || '';
-
   try {
     if (req.method === 'GET') {
       switch (action) {
@@ -309,7 +301,6 @@ export default async function handler(req) {
         default: return error('Accion no reconocida: ' + action);
       }
     }
-
     if (req.method === 'POST') {
       var body = await readBody(req);
       switch (action) {
@@ -319,10 +310,8 @@ export default async function handler(req) {
         default: return error('Accion no reconocida: ' + action);
       }
     }
-
     return error('Metodo no permitido', 405);
   } catch (e) {
-    console.error('Handler error:', e);
     return error('Error: ' + e.message);
   }
 }

@@ -171,10 +171,7 @@ body{font-family:'DM Sans',sans-serif;background:#060b08;color:#e4e4e4;overflow:
 <div id="toast" class="toastel"></div>
 
 <script>
-/* === DEBUG === */
 function dbg(m){console.log('[PS]',m);var d=document.getElementById('debugBar');if(d){d.style.display='block';d.textContent=m}}
-
-/* === UTILIDADES === */
 function E(id){return document.getElementById(id)}
 var _tt=null;
 function toast(m,t){var el=E('toast');el.textContent=m;el.className='toastel '+t;setTimeout(function(){el.classList.add('abierto')},10);clearTimeout(_tt);_tt=setTimeout(function(){el.classList.remove('abierto')},2800)}
@@ -184,33 +181,29 @@ function fmtH(ts){if(!ts)return '';var d=Date.now()-ts;if(d<6e4)return 'ahora';i
 function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
 function uidC(id){var h=0;for(var i=0;i<id.length;i++){h=((h<<5)-h)+id.charCodeAt(i)}return Math.abs(h)%360}
 
-/* === API CON TIMEOUT === */
 var API='/api/data';
-var TIMEOUT=10000;
-function fetchT(url,opt){return new Promise(function(ok,no){var t=setTimeout(function(){no(new Error('Tiempo agotado (10s)'))},TIMEOUT);fetch(url,opt).then(function(r){clearTimeout(t);ok(r)}).catch(function(e){clearTimeout(t);no(e)})})}
+var TIMEOUT=30000;
+function fetchT(url,opt){return new Promise(function(ok,no){var t=setTimeout(function(){no(new Error('Tiempo agotado (30s)'))},TIMEOUT);fetch(url,opt).then(function(r){clearTimeout(t);ok(r)}).catch(function(e){clearTimeout(t);no(e)})})}
 function apiGet(p){var q=[];for(var k in p){q.push(encodeURIComponent(k)+'='+encodeURIComponent(p[k]))}return fetchT(API+'?'+q.join('&')).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})}
 function apiPost(a,b){return fetchT(API+'?a='+a,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})}
 
-/* === ESTADO === */
 var usr=null,dat=null,tab='album',chatOid=null,chatK=null,pila=[],fAlb='all',fBus='missing',colaps={};
 var APW='panini2024';
 
-/* === INICIO === */
 dbg('JS cargado');
 E('pdot').className='punto c';
 E('ptxt').textContent='Verificando servidor...';
 
-apiGet({a:'users'}).then(function(r){
-    dbg('Servidor OK - '+(r.length||0)+' usuarios');
+apiGet({a:'ping'}).then(function(r){
+    dbg('Ping: '+(r.redis||'sin redis'));
     E('pdot').className='punto v';
     E('ptxt').textContent='Conectado a la nube';
 }).catch(function(e){
-    dbg('Servidor ERROR: '+(e.message||e));
+    dbg('Ping ERROR: '+(e.message||e));
     E('pdot').className='punto r';
     E('ptxt').textContent='Sin conexion al servidor';
 });
 
-/* === EVENTOS === */
 E('btnEntrar').addEventListener('click',hacerLogin);
 E('codigoInp').addEventListener('keydown',function(e){if(e.key==='Enter')hacerLogin()});
 E('btnAdmin').addEventListener('click',function(){E('vistaLogin').style.display='none';E('vistaAdmin').style.display='block';E('adminInp').focus()});
@@ -223,7 +216,6 @@ E('modal').addEventListener('click',function(e){if(e.target.id==='modal')cerrarM
 var navBtns=document.querySelectorAll('.nbtn');
 for(var ni=0;ni<navBtns.length;ni++){navBtns[ni].addEventListener('click',function(){irA(this.getAttribute('data-t'))})}
 
-/* === LOGIN === */
 function hacerLogin(){
     var cod=E('codigoInp').value.trim().toUpperCase();
     var err=E('loginErr');
@@ -272,7 +264,6 @@ function hacerLogout(){
     E('debugBar').style.display='block';
 }
 
-/* === NAVEGACION === */
 function irA(t){
     chatOid=null;chatK=null;tab=t;pila=[];
     for(var i=0;i<navBtns.length;i++){navBtns[i].classList.toggle('on',navBtns[i].getAttribute('data-t')===t)}
@@ -288,7 +279,6 @@ function irA(t){
 function empVista(tit,fn){pila.push({tab:tab,tit:E('htitulo').textContent});E('htitulo').textContent=tit;E('btnAtras').style.display='block';E('cnt').scrollTop=0;fn(E('cnt'))}
 function volverAtras(){if(!pila.length)return;var p=pila.pop();E('htitulo').textContent=p.tit;E('btnAtras').style.display=pila.length?'block':'none';E('cnt').scrollTop=0;if(p.tab==='album')dibAlbum(E('cnt'));else if(p.tab==='buscar')dibBuscar(E('cnt'));else if(p.tab==='mensajes')dibMensajes(E('cnt'));else if(p.tab==='perfil')dibPerfil(E('cnt'))}
 
-/* === STICKERS DATA === */
 var EQ=[
 {c:'QAT',n:'Qatar',cl:'#8a1538',j:'Al Sheeb|Barsham|Khoukhi|Al Rawi|Miguel|Hassan|Al Attiyah|Madibo|Asad|Waad|Al Hajri|Hatem|Boudiaf|Mohammad|Afif|Al Ali|Al Haydos|Muntari'},
 {c:'ECU',n:'Ecuador',cl:'#ffcd00',j:'Dominguez|Galindez|Arboleda|Hincapie|Preciado|Estupinan|Gruezo|Mendez|Caicedo|Franco|Ibarra|Plata|Estrada|Reasco|Torres|Cuesta|Alvarado|Valencia'},
@@ -366,15 +356,12 @@ for(var xi=0;xi<EXTRAS.length;xi++){
 var TOTAL=ST.length;
 dbg('Stickers: '+TOTAL);
 
-/* === PWA ICONO (sin service worker) === */
 try{
 var svgIcon='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="100" fill="#0a0f0b"/><rect x="24" y="24" width="464" height="464" rx="88" fill="none" stroke="#c9a84c" stroke-width="8"/><circle cx="256" cy="220" r="70" fill="none" stroke="#c9a84c" stroke-width="6"/><text x="256" y="380" text-anchor="middle" fill="#c9a84c" font-family="sans-serif" font-weight="900" font-size="100">P</text><text x="256" y="440" text-anchor="middle" fill="#e4e4e4" font-family="sans-serif" font-weight="700" font-size="42">SWAP</text></svg>';
 E('ai').href='data:image/svg+xml;base64,'+btoa(svgIcon);
-var manifestObj={name:'Panini Swap',short_name:'Panini Swap',start_url:'.',display:'standalone',background_color:'#0a0f0b',theme_color:'#0a0f0b',orientation:'portrait',icons:[{src:'data:image/svg+xml;base64,'+btoa(svgIcon),sizes:'512x512',type:'image/svg+xml',purpose:'any maskable'}]};
-E('lm').href=URL.createObjectURL(new Blob([JSON.stringify(manifestObj)],{type:'application/json'}));
+E('lm').href=URL.createObjectURL(new Blob([JSON.stringify({name:'Panini Swap',short_name:'Panini Swap',start_url:'.',display:'standalone',background_color:'#0a0f0b',theme_color:'#0a0f0b',orientation:'portrait',icons:[{src:'data:image/svg+xml;base64,'+btoa(svgIcon),sizes:'512x512',type:'image/svg+xml',purpose:'any maskable'}]})],{type:'application/json'}));
 }catch(e){}
 
-/* === HELPERS ALBUM === */
 function hSt(st,cls,q){
     var bg='';
     if(cls==='hav')bg='<div class="badge hb"><i class="fas fa-check" style="font-size:.45rem"></i></div>';
@@ -390,45 +377,18 @@ function abrirSt(n){
     var st=SM[n];
     var q=(dat.stickers||{})[n]||0;
     var mc=E('modalCuerpo');
-
-    /* Construir HTML en pasos para evitar errores de parentesis */
     var borderCol = q ? 'var(--ok)' : 'var(--border)';
     var qtyCol = q ? 'var(--ok)' : 'var(--err)';
     var plural = q !== 1 ? 'es' : '';
     var rarTxt = st.rar ? ' - ' + st.rar.toUpperCase() : '';
-
-    mc.innerHTML = '<div style="text-align:center;margin-bottom:16px">' +
-        '<div style="width:100px;height:130px;border-radius:10px;border:3px solid '+borderCol+';margin:0 auto 12px;background:var(--bg2);display:flex;flex-direction:column;overflow:hidden">' +
-            '<div style="height:8px;background:'+st.cl+'" class="'+(st.shm||'')+'"></div>' +
-            '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px">' +
-                '<div class="fd" style="font-size:1.8rem">'+st.num+'</div>' +
-                '<div style="font-size:.85rem;font-weight:600">'+st.n+'</div>' +
-                '<div style="font-size:.7rem;color:var(--muted)">'+st.tn+rarTxt+'</div>' +
-            '</div>' +
-        '</div>' +
-        '<div style="font-size:1.3rem"><span class="fd" style="color:'+qtyCol+'">'+q+'</span> <span style="font-size:.85rem;color:var(--muted)">ejemplar'+plural+'</span></div>' +
-    '</div>' +
-    '<div style="display:flex;gap:12px;margin-bottom:12px">' +
-        '<button class="btnsm bok" style="padding:10px;flex:1" id="s0">No tengo</button>' +
-        '<button class="btnsm bok" style="padding:10px;flex:1" id="s1">Tengo 1</button>' +
-        '<button class="btnsm bacc" style="padding:10px;flex:1" id="sp">+1</button>' +
-    '</div>' +
-    '<div style="display:flex;gap:8px">' +
-        '<button class="btnsm bdel" style="padding:10px;flex:1" id="sm">-1</button>' +
-        '<button class="btnsm" style="padding:10px;flex:1;border:1px solid var(--warn);color:var(--warn)" id="s2">x2</button>' +
-        '<button class="btnsm" style="padding:10px;flex:1;border:1px solid var(--warn);color:var(--warn)" id="s3">x3</button>' +
-    '</div>';
-
+    mc.innerHTML = '<div style="text-align:center;margin-bottom:16px"><div style="width:100px;height:130px;border-radius:10px;border:3px solid '+borderCol+';margin:0 auto 12px;background:var(--bg2);display:flex;flex-direction:column;overflow:hidden"><div style="height:8px;background:'+st.cl+'" class="'+(st.shm||'')+'"></div><div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px"><div class="fd" style="font-size:1.8rem">'+st.num+'</div><div style="font-size:.85rem;font-weight:600">'+st.n+'</div><div style="font-size:.7rem;color:var(--muted)">'+st.tn+rarTxt+'</div></div></div><div style="font-size:1.3rem"><span class="fd" style="color:'+qtyCol+'">'+q+'</span> <span style="font-size:.85rem;color:var(--muted)">ejemplar'+plural+'</span></div></div><div style="display:flex;gap:12px;margin-bottom:12px"><button class="btnsm bok" style="padding:10px;flex:1" id="s0">No tengo</button><button class="btnsm bok" style="padding:10px;flex:1" id="s1">Tengo 1</button><button class="btnsm bacc" style="padding:10px;flex:1" id="sp">+1</button></div><div style="display:flex;gap:8px"><button class="btnsm bdel" style="padding:10px;flex:1" id="sm">-1</button><button class="btnsm" style="padding:10px;flex:1;border:1px solid var(--warn);color:var(--warn)" id="s2">x2</button><button class="btnsm" style="padding:10px;flex:1;border:1px solid var(--warn);color:var(--warn)" id="s3">x3</button></div>';
     abrirModal();
-
     function sq(v){
         if(v<0)v=0;
         var ns=JSON.parse(JSON.stringify(dat.stickers||{}));
         if(v===0)delete ns[n];else ns[n]=v;
         dat.stickers=ns;
-        apiPost('save',{id:usr,stickers:ns}).then(function(){
-            cerrarModal();dibAlbum(E('cnt'));toast('Cromo #'+n+' guardado','suc');
-        }).catch(function(){toast('Error al guardar','err')});
+        apiPost('save',{id:usr,stickers:ns}).then(function(){cerrarModal();dibAlbum(E('cnt'));toast('Cromo #'+n+' guardado','suc')}).catch(function(){toast('Error al guardar','err')});
     }
     E('s0').onclick=function(){sq(0)};
     E('s1').onclick=function(){sq(1)};
@@ -438,7 +398,6 @@ function abrirSt(n){
     E('s3').onclick=function(){sq(3)};
 }
 
-/* === DIBUJAR ALBUM === */
 function dibAlbum(c){
     var st=dat.stickers||{},tg=0,rp=0;
     for(var i=0;i<ST.length;i++){var q=st[ST[i].num]||0;if(q>=1)tg++;if(q>1)rp++}
@@ -451,7 +410,6 @@ function dibAlbum(c){
     c.innerHTML=h;
     var fb=c.querySelectorAll('#fa .fbtn');
     for(var bi=0;bi<fb.length;bi++){fb[bi].onclick=function(){fAlb=this.getAttribute('data-f');dibAlbum(E('cnt'))}}
-
     if(fAlb!=='missing'){
         var ext=[];
         for(var x=0;x<ST.length;x++){if(ST[x].tp==='extra')ext.push(ST[x])}
@@ -471,7 +429,6 @@ function dibAlbum(c){
             c.querySelector('[data-eq="EXTRA"]').onclick=function(){colaps['EXTRA']=!colaps['EXTRA'];dibAlbum(E('cnt'))};
         }
     }
-
     for(var eqi=0;eqi<EQ.length;eqi++){
         var eq=EQ[eqi],tS=[],ht2=0;
         for(var ts=0;ts<ST.length;ts++){if(ST[ts].team===eq.c)tS.push(ST[ts])}
@@ -492,12 +449,10 @@ function dibAlbum(c){
         c.insertAdjacentHTML('beforeend',eqh);
         c.querySelector('[data-eq="'+eq.c+'"]').onclick=(function(cd){return function(){colaps[cd]=!colaps[cd];dibAlbum(E('cnt'))}})(eq.c);
     }
-
     var allS=c.querySelectorAll('.crt[data-n]');
     for(var ci2=0;ci2<allS.length;ci2++){allS[ci2].onclick=(function(n){return function(){abrirSt(n)}})(parseInt(allS[ci2].getAttribute('data-n')))}
 }
 
-/* === DIBUJAR BUSCAR === */
 function dibBuscar(c){
     var st=dat.stickers||{},fal=[],rps=[];
     for(var i=0;i<ST.length;i++){var q=st[ST[i].num]||0;if(q===0)fal.push(ST[i]);if(q>1)rps.push(ST[i])}
@@ -507,14 +462,12 @@ function dibBuscar(c){
     c.innerHTML=h;
     var bs2=c.querySelectorAll('#fb2 .fbtn');
     for(var b=0;b<bs2.length;b++){bs2[b].onclick=(function(v){return function(){fBus=v;dibBuscar(E('cnt'))}})(bs2[b].getAttribute('data-s'))}
-
     apiGet({a:'search',id:usr,mode:fBus==='missing'?'missing':'all'}).then(function(r){
         var res=r.results||[],div=E('resBus');
         if(!res.length){div.innerHTML='<div class="vacio"><i class="fas fa-search"></i><div>Sin coincidencias</div></div>';return}
         var gr={};
         for(var ri=0;ri<res.length;ri++){var rv=res[ri];if(!gr[rv.stickerNum])gr[rv.stickerNum]={st:SM[rv.stickerNum],u:[]};gr[rv.stickerNum].u.push(rv)}
-        var gh='';
-        var gk=Object.keys(gr);
+        var gh='';var gk=Object.keys(gr);
         for(var gi=0;gi<gk.length;gi++){var g=gr[gk[gi]];if(!g.st)continue;gh+='<div class="rcard" data-sn="'+g.st.num+'"><div class="minis"><div class="mf" style="background:'+g.st.cl+'"></div><div class="mn">'+g.st.num+'</div></div><div style="flex:1;min-width:0"><div style="font-size:.85rem;font-weight:600">'+g.st.n+'</div><div style="font-size:.7rem;color:var(--muted)">'+g.st.tn+'</div><div style="font-size:.7rem;color:var(--ok);margin-top:2px"><i class="fas fa-users"></i> '+g.u.length+' lo tiene'+(g.u.length>1?'n':'')+' rep</div></div><i class="fas fa-chevron-right" style="color:var(--muted)"></i></div>'}
         div.innerHTML=gh;
         var rcs=div.querySelectorAll('[data-sn]');
@@ -524,13 +477,11 @@ function dibBuscar(c){
 
 function verMatch(n){
     var st=SM[n],ih=(dat.stickers||{})[n]||0;
-    var borderCol2 = ih ? 'var(--ok)' : 'var(--err)';
-    var statusCol = ih ? 'var(--ok)' : 'var(--err)';
-    var statusTxt = ih ? 'Ya lo tienes' : 'Te falta';
-
+    var borderCol2=ih?'var(--ok)':'var(--err)';
+    var statusCol=ih?'var(--ok)':'var(--err)';
+    var statusTxt=ih?'Ya lo tienes':'Te falta';
     empVista('Cromo #'+n,function(c){
         c.innerHTML='<div style="text-align:center;padding:16px"><div style="width:90px;height:120px;border-radius:10px;border:3px solid '+borderCol2+';margin:0 auto 10px;background:var(--bg2);display:flex;flex-direction:column;overflow:hidden"><div style="height:6px;background:'+st.cl+'"></div><div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px"><div class="fd" style="font-size:1.5rem">'+st.num+'</div><div style="font-size:.8rem;font-weight:600">'+st.n+'</div><div style="font-size:.65rem;color:var(--muted)">'+st.tn+'</div></div></div><div style="font-size:.8rem;color:'+statusCol+'">'+statusTxt+'</div></div><div style="padding:0 16px 8px;font-size:.85rem;font-weight:600;color:var(--muted)">Quienes lo tienen</div><div id="ml"><div style="text-align:center;padding:16px;color:var(--muted)"><div class="carg" style="margin:0 auto 8px;width:24px;height:24px;border-width:2px"></div></div></div>';
-
         apiGet({a:'search',id:usr,mode:'missing'}).then(function(r){
             var ms=[],rr=r.results||[];
             for(var i=0;i<rr.length;i++){if(rr[i].stickerNum===n)ms.push(rr[i])}
@@ -539,8 +490,8 @@ function verMatch(n){
             var mh='';
             for(var m=0;m<ms.length;m++){
                 var mm=ms[m];
-                var qtyInfo = mm.qty>1 ? '<i class="fas fa-clone"></i> '+mm.qty+' rep' : '1 ejemplar';
-                var qtyColor = mm.qty>1 ? 'var(--warn)' : 'var(--ok)';
+                var qtyInfo=mm.qty>1?'<i class="fas fa-clone"></i> '+mm.qty+' rep':'1 ejemplar';
+                var qtyColor=mm.qty>1?'var(--warn)':'var(--ok)';
                 mh+='<div class="rcard" data-oid="'+mm.userId+'"><div class="avat" style="background:hsl('+uidC(mm.userId)+',60%,35%)">'+mm.userName[0]+'</div><div style="flex:1;min-width:0"><div style="font-size:.85rem;font-weight:600">'+mm.userName+'</div><div style="font-size:.7rem;color:'+qtyColor+'">'+qtyInfo+'</div></div><i class="fas fa-comment" style="color:var(--accent)"></i></div>';
             }
             ml.innerHTML=mh;
@@ -550,7 +501,6 @@ function verMatch(n){
     });
 }
 
-/* === DIBUJAR MENSAJES === */
 function dibMensajes(c){
     c.innerHTML='<div style="padding:16px 16px 8px"><div class="fd" style="font-size:1.4rem;color:var(--accent);margin-bottom:4px">Mensajes</div></div><div id="cl"><div style="text-align:center;padding:24px;color:var(--muted)"><div class="carg" style="margin:0 auto 8px"></div></div></div>';
     apiGet({a:'convs',id:usr}).then(function(cvs){
@@ -603,7 +553,6 @@ function envMsg(){
     apiPost('msg',{key:chatK,from:usr,text:txt}).then(function(){dibChat(E('cnt'))}).catch(function(){toast('Error al enviar','err')});
 }
 
-/* === DIBUJAR PERFIL === */
 function dibPerfil(c){
     var st=dat.stickers||{},tg=0,rt=0;
     for(var i=0;i<ST.length;i++){var q=st[ST[i].num]||0;if(q>=1)tg++;if(q>1)rt+=q-1}
@@ -634,10 +583,8 @@ function dibPerfil(c){
     };
 }
 
-/* === DIBUJAR ADMIN === */
 function dibAdmin(c){
-    c.innerHTML='<div style="padding:16px 16px 8px"><div class="fd" style="font-size:1.4rem;color:var(--accent);margin-bottom:4px">Panel Admin</div><div style="font-size:.8rem;color:var(--muted)">Vercel KV</div></div><div style="padding:0 16px;margin-bottom:12px"><button class="btnp" id="bnGen"><i class="fas fa-plus"></i> Generar codigo</button></div><div style="padding:0 16px;margin-bottom:12px"><button class="btns" style="width:100%;display:block;text-align:center" id="bnDemo"><i class="fas fa-database"></i> Cargar datos demo</button></div><div style="padding:0 16px;margin-bottom:12px"><button class="btns" style="width:100%;display:block;text-align:center;border-color:var(--err);color:var(--err)" id="bnReset"><i class="fas fa-trash"></i> Reiniciar base de datos</button></div><div style="padding:0 16px 8px;font-size:.85rem;font-weight:600;color:var(--muted)">Usuarios</div><div id="al"><div style="text-align:center;padding:16px;color:var(--muted)"><div class="carg" style="margin:0 auto 8px"></div></div></div>';
-
+    c.innerHTML='<div style="padding:16px 16px 8px"><div class="fd" style="font-size:1.4rem;color:var(--accent);margin-bottom:4px">Panel Admin</div><div style="font-size:.8rem;color:var(--muted)">Upstash Redis</div></div><div style="padding:0 16px;margin-bottom:12px"><button class="btnp" id="bnGen"><i class="fas fa-plus"></i> Generar codigo</button></div><div style="padding:0 16px;margin-bottom:12px"><button class="btns" style="width:100%;display:block;text-align:center" id="bnDemo"><i class="fas fa-database"></i> Cargar datos demo</button></div><div style="padding:0 16px;margin-bottom:12px"><button class="btns" style="width:100%;display:block;text-align:center;border-color:var(--err);color:var(--err)" id="bnReset"><i class="fas fa-trash"></i> Reiniciar base de datos</button></div><div style="padding:0 16px 8px;font-size:.85rem;font-weight:600;color:var(--muted)">Usuarios</div><div id="al"><div style="text-align:center;padding:16px;color:var(--muted)"><div class="carg" style="margin:0 auto 8px"></div></div></div>';
     E('bnGen').onclick=function(){
         E('modalCuerpo').innerHTML='<div style="font-size:1rem;font-weight:700;margin-bottom:12px">Nuevo codigo</div><input type="text" class="inp2" id="nwN" placeholder="Nombre" style="margin-bottom:8px"><input type="tel" class="inp2" id="nwT" placeholder="Telefono" style="margin-bottom:12px"><div id="nwR" style="display:none;margin-bottom:12px;padding:16px;background:var(--bg2);border-radius:10px;text-align:center"><div style="font-size:.72rem;color:var(--muted);margin-bottom:6px">Codigo:</div><div id="nwC" class="fd" style="font-size:2rem;color:var(--accent)"></div></div><div style="display:flex;gap:12px"><button class="btns" style="flex:1" id="nwX">Cancelar</button><button class="btnp" style="flex:1" id="nwG">Generar</button></div>';
         abrirModal();
@@ -655,11 +602,9 @@ function dibAdmin(c){
             })(base);
         };
     };
-
     E('bnDemo').onclick=function(){
         apiGet({a:'initDemo'}).then(function(){toast('Demo cargado','suc');dibAdmin(E('cnt'))}).catch(function(){toast('Error al cargar demo','err')});
     };
-
     E('bnReset').onclick=function(){
         E('modalCuerpo').innerHTML='<div style="text-align:center;margin-bottom:16px"><i class="fas fa-exclamation-triangle" style="font-size:2rem;color:var(--err);display:block;margin-bottom:10px"></i><div style="font-weight:700">Reiniciar todo?</div></div><div style="display:flex;gap:12px"><button class="btns" style="flex:1" id="dbX">Cancelar</button><button class="btnsm bdel" style="padding:12px;font-size:.85rem;border-radius:10px;flex:1" id="dbO">Reiniciar</button></div>';
         abrirModal();
@@ -668,7 +613,6 @@ function dibAdmin(c){
             apiGet({a:'adminReset'}).then(function(){cerrarModal();toast('Reiniciada','inf');dibAdmin(E('cnt'))}).catch(function(){toast('Error','err')});
         };
     };
-
     apiGet({a:'users'}).then(function(users){
         var al=E('al');
         if(!users.length){al.innerHTML='<div class="vacio" style="padding:24px"><i class="fas fa-user-plus"></i><div>Sin usuarios. Genera codigos o carga demo.</div></div>';return}
@@ -687,7 +631,6 @@ function dibAdmin(c){
     }).catch(function(){E('al').innerHTML='<div class="vacio"><i class="fas fa-wifi"></i><div>Error de conexion al servidor</div></div>'});
 }
 
-/* === PWA INSTALL === */
 var iP=null;
 window.addEventListener('beforeinstallprompt',function(e){
     e.preventDefault();iP=e;
