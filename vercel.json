@@ -1,3 +1,11 @@
 {
-  "framework": null
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "functions": {
+    "api/data.js": {
+      "memory": 256,
+      "maxDuration": 10
+    }
+  }
 }
