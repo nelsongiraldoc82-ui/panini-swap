@@ -1,11 +1,28 @@
 var UPSTASH_URL = process.env.KV_REST_API_URL;
 var UPSTASH_TOKEN = process.env.KV_REST_API_TOKEN;
 
-function checkConfig() {
-  if (!UPSTASH_URL || !UPSTASH_TOKEN) {
-    throw new Error('Faltan KV_REST_API_URL o KV_REST_API_TOKEN en Environment Variables');
-  }
+function jsonResponse(data, status) {
+  return new Response(JSON.stringify(data), {
+    status: status || 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    }
+  });
 }
+
+function error(msg, status) {
+  return jsonResponse({ error: msg }, status || 500);
+}
+
+async function readBody(req) {
+  try { return await req.json(); }
+  catch (e) { return {}; }
+}
+
+function uk(id) { return 'user:' + id; }
 
 async function kv(cmd) {
   var args = Array.prototype.slice.call(arguments, 1);
@@ -46,31 +63,25 @@ async function kvScan(pattern) {
   return allKeys;
 }
 
-function jsonResponse(data, status) {
-  return new Response(JSON.stringify(data), {
-    status: status || 200,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type'
+async function handlePing() {
+  var info = {
+    url: UPSTASH_URL ? UPSTASH_URL.substring(0, 30) + '...' : 'NO ENCONTRADA',
+    token: UPSTASH_TOKEN ? 'SI (' + UPSTASH_TOKEN.substring(0, 8) + '...)' : 'NO ENCONTRADO'
+  };
+  if (UPSTASH_URL && UPSTASH_TOKEN) {
+    try {
+      await kv('ping');
+      info.redis = 'CONECTADO';
+    } catch (e) {
+      info.redis = 'ERROR: ' + e.message;
     }
-  });
+  } else {
+    info.redis = 'SIN CREDENCIALES';
+  }
+  return jsonResponse(info);
 }
-
-function error(msg, status) {
-  return jsonResponse({ error: msg }, status || 500);
-}
-
-async function readBody(req) {
-  try { return await req.json(); }
-  catch (e) { return {}; }
-}
-
-function uk(id) { return 'user:' + id; }
 
 async function handleUsers() {
-  checkConfig();
   var keys = await kvScan('user:*');
   if (!keys.length) return jsonResponse([]);
   var users = [];
@@ -82,7 +93,6 @@ async function handleUsers() {
 }
 
 async function handleLogin(params) {
-  checkConfig();
   var id = (params.id || '').trim().toUpperCase();
   if (!id) return error('Codigo vacio');
   if (id === '__ADMIN__') return error('Codigo reservado');
@@ -92,7 +102,6 @@ async function handleLogin(params) {
 }
 
 async function handleSave(body) {
-  checkConfig();
   var id = (body.id || '').trim().toUpperCase();
   if (!id) return error('Sin usuario');
   if (!body.stickers) return error('Sin datos');
@@ -104,7 +113,6 @@ async function handleSave(body) {
 }
 
 async function handleSearch(params) {
-  checkConfig();
   var myId = (params.id || '').trim().toUpperCase();
   var mode = params.mode || 'missing';
   if (!myId) return error('Sin usuario');
@@ -138,7 +146,6 @@ async function handleSearch(params) {
 }
 
 async function handleConvs(params) {
-  checkConfig();
   var id = (params.id || '').trim().toUpperCase();
   if (!id) return error('Sin usuario');
   var convKeys = await kvGet('convs:' + id);
@@ -152,7 +159,6 @@ async function handleConvs(params) {
 }
 
 async function handleConv(params) {
-  checkConfig();
   var key = params.key;
   if (!key) return error('Sin clave');
   var conv = await kvGet('conv:' + key);
@@ -161,7 +167,6 @@ async function handleConv(params) {
 }
 
 async function handleRead(params) {
-  checkConfig();
   var id = (params.id || '').trim().toUpperCase();
   var key = params.key;
   if (!id || !key) return error('Datos incompletos');
@@ -179,7 +184,6 @@ async function handleRead(params) {
 }
 
 async function handleMsg(body) {
-  checkConfig();
   var key = body.key;
   var from = (body.from || '').trim().toUpperCase();
   var text = (body.text || '').trim();
@@ -203,7 +207,6 @@ async function handleMsg(body) {
 }
 
 async function handleAdminCreate(body) {
-  checkConfig();
   var id = (body.id || '').trim().toUpperCase();
   var name = (body.name || '').trim();
   if (!id || !name) return error('Faltan datos');
@@ -216,7 +219,6 @@ async function handleAdminCreate(body) {
 }
 
 async function handleAdminDelete(params) {
-  checkConfig();
   var id = (params.id || '').trim().toUpperCase();
   if (!id) return error('Sin usuario');
   await kvDel(uk(id));
@@ -242,7 +244,6 @@ async function handleAdminDelete(params) {
 }
 
 async function handleAdminReset() {
-  checkConfig();
   var allKeys = await kvScan('*');
   for (var i = 0; i < allKeys.length; i++) {
     await kvDel(allKeys[i]);
@@ -251,7 +252,6 @@ async function handleAdminReset() {
 }
 
 async function handleInitDemo() {
-  checkConfig();
   var demoUsers = [
     { id: 'CARLOS01', name: 'Carlos Perez', phone: '555-0101' },
     { id: 'MARIA02', name: 'Maria Garcia', phone: '555-0102' },
@@ -296,6 +296,7 @@ export default async function handler(req) {
   try {
     if (req.method === 'GET') {
       switch (action) {
+        case 'ping': return handlePing();
         case 'users': return handleUsers();
         case 'login': return handleLogin(Object.fromEntries(url.searchParams));
         case 'search': return handleSearch(Object.fromEntries(url.searchParams));
